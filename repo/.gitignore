@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+*.log
+coverage/
+.angular/
+.temp/
+test-results/
+playwright-report/
+apps/web/.angular/
+apps/web/dist/

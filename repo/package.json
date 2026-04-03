@@ -1,0 +1,25 @@
+{
+  "name": "studioops",
+  "version": "1.0.0",
+  "private": true,
+  "description": "StudioOps Offline Photo & Video Service Platform",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "test": "node --experimental-vm-modules scripts/run-tests.js",
+    "test:unit": "npm run test -w @studioops/api",
+    "test:integration": "npm run test:integration -w @studioops/api",
+    "test:docker": "docker compose --env-file .env.test --profile test up --build --abort-on-container-exit --exit-code-from test-runner",
+    "test:sh": "./run_tests.sh",
+    "lint": "npm run lint --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1"
+  }
+}

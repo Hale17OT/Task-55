@@ -1,0 +1,29 @@
+{
+  "name": "@studioops/db",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./schema": "./dist/schema/index.js",
+    "./seed": "./dist/seed.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "argon2": "^0.44.0",
+    "drizzle-orm": "^0.39.0",
+    "postgres": "^3.4.0"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.30.0",
+    "typescript": "^5.5.0"
+  }
+}

@@ -1,0 +1,80 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: studioops
+      POSTGRES_USER: studioops
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "54320:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U studioops -d studioops"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      DATABASE_URL: postgres://studioops:${DB_PASSWORD}@db:5432/studioops
+      JWT_SECRET: ${JWT_SECRET}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      STORAGE_ROOT: /data/media
+      NODE_ENV: production
+      PORT: 3000
+      CORS_ORIGIN: http://localhost:4200
+      DB_PASSWORD: ${DB_PASSWORD}
+      RATE_LIMIT_MULTIPLIER: ${RATE_LIMIT_MULTIPLIER:-1}
+    ports:
+      - "3100:3000"
+    volumes:
+      - media_storage:/data/media
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/v1/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - "4200:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  test-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    environment:
+      CI: "true"
+      DATABASE_URL: postgres://studioops:${DB_PASSWORD}@db:5432/studioops
+      API_URL: http://api:3000
+      APP_URL: http://web:80
+      NODE_ENV: test
+      JWT_SECRET: ${JWT_SECRET}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      STORAGE_ROOT: ./test-data/media
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_started
+    profiles:
+      - test
+
+volumes:
+  pgdata:
+  media_storage:
