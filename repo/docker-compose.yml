@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_DB: studioops
       POSTGRES_USER: studioops
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-dev_password_change_me}
     ports:
       - "54320:5432"
     volumes:
@@ -20,15 +20,16 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
     environment:
-      DATABASE_URL: postgres://studioops:${DB_PASSWORD}@db:5432/studioops
-      JWT_SECRET: ${JWT_SECRET}
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      DATABASE_URL: postgres://studioops:${DB_PASSWORD:-dev_password_change_me}@db:5432/studioops
+      JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_change_me_at_least_32_characters_long}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       STORAGE_ROOT: /data/media
-      NODE_ENV: production
+      NODE_ENV: ${NODE_ENV:-development}
       PORT: 3000
       CORS_ORIGIN: http://localhost:4200
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PASSWORD: ${DB_PASSWORD:-dev_password_change_me}
+      SEED_DATA: ${SEED_DATA:-true}
       RATE_LIMIT_MULTIPLIER: ${RATE_LIMIT_MULTIPLIER:-1}
     ports:
       - "3100:3000"
@@ -60,12 +61,12 @@ services:
       dockerfile: Dockerfile.test
     environment:
       CI: "true"
-      DATABASE_URL: postgres://studioops:${DB_PASSWORD}@db:5432/studioops
+      DATABASE_URL: postgres://studioops:${DB_PASSWORD:-dev_password_change_me}@db:5432/studioops
       API_URL: http://api:3000
       APP_URL: http://web:80
       NODE_ENV: test
-      JWT_SECRET: ${JWT_SECRET}
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_change_me_at_least_32_characters_long}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
       STORAGE_ROOT: ./test-data/media
     depends_on:
       api:
