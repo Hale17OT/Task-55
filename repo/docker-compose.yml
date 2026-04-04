@@ -30,7 +30,7 @@ services:
       CORS_ORIGIN: http://localhost:4200
       DB_PASSWORD: ${DB_PASSWORD:-dev_password_change_me}
       SEED_DATA: ${SEED_DATA:-true}
-      RATE_LIMIT_MULTIPLIER: ${RATE_LIMIT_MULTIPLIER:-1}
+      RATE_LIMIT_MULTIPLIER: ${RATE_LIMIT_MULTIPLIER:-100}
     ports:
       - "3100:3000"
     volumes:
