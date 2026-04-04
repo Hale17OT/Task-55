@@ -25,6 +25,9 @@ COPY e2e/ e2e/
 # Install all dependencies (including devDependencies for tests)
 RUN npm install --workspaces --include-workspace-root
 
+# Build workspace packages so dist/ directories exist for module resolution
+RUN npm run build --workspace=packages/shared --workspace=packages/db --if-present
+
 # Seed DB with test data then run all tests via the existing runner in strict CI mode
 COPY scripts/docker-test-entrypoint.sh /docker-test-entrypoint.sh
 RUN chmod +x /docker-test-entrypoint.sh
