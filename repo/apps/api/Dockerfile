@@ -14,6 +14,9 @@ COPY packages/shared/ packages/shared/
 COPY packages/db/ packages/db/
 COPY apps/api/ apps/api/
 
+# Build workspace packages so dist/ directories exist for module resolution
+RUN npm run build --workspace=packages/shared --workspace=packages/db --workspace=apps/api --if-present
+
 # --- Production stage (using tsx for module resolution) ---
 FROM node:22-alpine
 

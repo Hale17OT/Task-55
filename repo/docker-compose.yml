@@ -68,6 +68,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_change_me_at_least_32_characters_long}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
       STORAGE_ROOT: ./test-data/media
+      SKIP_ANGULAR_BUILD: "true"
     depends_on:
       api:
         condition: service_healthy

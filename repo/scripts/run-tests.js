@@ -41,8 +41,13 @@ if (process.env.DATABASE_URL) {
   skipped.push('integration');
 }
 
-// 3. Angular build
-run('[3/4] Angular Build Check', 'npx ng build --configuration=production', resolve(root, 'apps/web'));
+// 3. Angular build (skip in Docker — the web service build already validates this)
+if (process.env.SKIP_ANGULAR_BUILD !== 'true') {
+  run('[3/4] Angular Build Check', 'npx ng build --configuration=production', resolve(root, 'apps/web'));
+} else {
+  console.log('\n--- [3/4] Angular Build Check ---');
+  console.log('⚠ Skipped (SKIP_ANGULAR_BUILD=true — web service build validates this).');
+}
 
 // 4. E2E tests (if API is running)
 const apiUrl = process.env.API_URL || 'http://localhost:3100';
