@@ -17,7 +17,7 @@ test.describe('Browser: Portfolio Management', () => {
     await page.click('nav a:has-text("Portfolio")');
     await page.waitForURL(/\/portfolio/, { timeout: 5000 });
     await expect(page.locator('h2:has-text("Portfolio")')).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('text=Upload')).toBeVisible();
+    await expect(page.locator('label:has-text("Upload")')).toBeVisible();
     await expect(page.locator('select').first()).toBeVisible();
   });
 
