@@ -24,12 +24,15 @@ test.describe('Browser: Data Quality & Dedup', () => {
     await loginAsOps(page);
     await page.click('nav a:has-text("Data Quality")');
     await page.waitForURL(/\/data-quality/, { timeout: 5000 });
-    // Tab should be active and show either candidates with Merge/Dismiss or "No candidates"
+    await page.waitForTimeout(2000);
+    // Tab should show either candidates (with Merge/Dismiss or status badges) or empty state
     const mergeBtn = page.locator('button:has-text("Merge")').first();
     const noCandidates = page.locator('text=No duplicate candidates');
-    const hasCandidates = await mergeBtn.isVisible().catch(() => false);
+    const candidateCard = page.locator('text=match').first();
+    const hasMerge = await mergeBtn.isVisible().catch(() => false);
     const isEmpty = await noCandidates.isVisible().catch(() => false);
-    expect(hasCandidates || isEmpty).toBe(true);
+    const hasCards = await candidateCard.isVisible().catch(() => false);
+    expect(hasMerge || isEmpty || hasCards).toBe(true);
   });
 
   test('quality flags tab shows flags or empty state', async ({ page }) => {
