@@ -7,7 +7,8 @@ export async function login(request: APIRequestContext, username: string, passwo
     data: { username, password },
   });
   const body = await res.json();
-  return { token: body.accessToken, refreshToken: body.refreshToken, status: res.status() };
+  // refreshToken is in httpOnly cookie (not in body); accessToken is in both body and cookie
+  return { token: body.accessToken, status: res.status() };
 }
 
 export async function authHeaders(token: string) {

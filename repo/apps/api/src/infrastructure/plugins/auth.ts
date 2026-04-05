@@ -31,6 +31,11 @@ async function authPlugin(fastify: FastifyInstance, opts: AuthPluginOptions) {
   });
 
   fastify.decorate('authenticate', async function (request: FastifyRequest, reply: FastifyReply) {
+    // Support token from httpOnly cookie as well as Authorization header
+    if (!request.headers.authorization && (request as any).cookies?.accessToken) {
+      request.headers.authorization = `Bearer ${(request as any).cookies.accessToken}`;
+    }
+
     try {
       await request.jwtVerify();
     } catch (err) {
@@ -79,6 +84,11 @@ async function authPlugin(fastify: FastifyInstance, opts: AuthPluginOptions) {
 
   // Optional authenticate: validates session if token present, but allows guest access (no token = no user, no error)
   fastify.decorate('optionalAuthenticate', async function (request: FastifyRequest, _reply: FastifyReply) {
+    // Support token from httpOnly cookie (same as mandatory auth)
+    if (!request.headers.authorization && (request as any).cookies?.accessToken) {
+      request.headers.authorization = `Bearer ${(request as any).cookies.accessToken}`;
+    }
+
     try {
       await request.jwtVerify();
     } catch {

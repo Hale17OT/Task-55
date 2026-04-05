@@ -30,9 +30,15 @@ export async function setup() {
     console.error(`╔══════════════════════════════════════════════════════════════╗`);
     console.error(`║  Integration tests require PostgreSQL at ${host}:${port}`.padEnd(63) + '║');
     console.error(`║  Start DB: docker compose up db -d`.padEnd(63) + '║');
-    console.error(`║  Skipping integration tests.`.padEnd(63) + '║');
     console.error(`╚══════════════════════════════════════════════════════════════╝`);
     console.error('');
+
+    // In CI or strict mode: fail hard. In local dev (SKIP_INTEGRATION=true): skip gracefully.
+    if (process.env.CI === 'true' || process.env.SKIP_INTEGRATION !== 'true') {
+      console.error('Failing (set SKIP_INTEGRATION=true to skip in local dev).');
+      process.exit(1);
+    }
+    console.error('Skipping (SKIP_INTEGRATION=true).');
     process.exit(0);
   }
 }

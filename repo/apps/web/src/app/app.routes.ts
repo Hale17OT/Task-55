@@ -35,7 +35,7 @@ export const routes: Routes = [
       },
       {
         path: 'portfolio',
-        canActivate: [authGuard, roleGuard('merchant')],
+        canActivate: [authGuard, roleGuard('merchant', 'client')],
         loadComponent: () => import('./features/portfolio/portfolio.component').then(m => m.PortfolioComponent),
       },
       {

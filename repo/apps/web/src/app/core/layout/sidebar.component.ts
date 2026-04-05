@@ -12,7 +12,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Home', path: '/', roles: [] },
   { label: 'Offerings', path: '/offerings', roles: [] }, // Public — guests can browse
   { label: 'Events', path: '/events', roles: ['merchant', 'operations', 'client', 'administrator'] },
-  { label: 'Portfolio', path: '/portfolio', roles: ['merchant', 'administrator'] },
+  { label: 'Portfolio', path: '/portfolio', roles: ['merchant', 'client', 'administrator'] },
   { label: 'Dashboard', path: '/dashboard', roles: ['operations', 'administrator'] },
   { label: 'Data Quality', path: '/data-quality', roles: ['operations', 'administrator'] },
   { label: 'Admin', path: '/admin', roles: ['administrator'] },

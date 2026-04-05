@@ -1,4 +1,5 @@
 import { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import {
   createEventSchema,
   updateEventSchema,
@@ -39,6 +40,7 @@ export default async function eventRoutes(fastify: FastifyInstance) {
     });
 
     request.auditContext = { resourceType: 'event', resourceId: event.id, afterState: event };
+    await request.writeAudit();
     return reply.status(201).send(event);
   });
 
@@ -46,19 +48,34 @@ export default async function eventRoutes(fastify: FastifyInstance) {
   fastify.get('/', {
     preHandler: [fastify.authenticate, fastify.authorize('event', 'read')],
   }, async (request, reply) => {
-    const query = request.query as { page?: string; limit?: string; orgId?: string; eventType?: string; status?: string; from?: string; to?: string };
+    const querySchema = z.object({
+      page: z.string().optional(), limit: z.string().optional(),
+      orgId: z.string().uuid().optional(), eventType: z.string().optional(),
+      status: z.string().optional(),
+      from: z.string().datetime({ offset: true }).optional().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()),
+      to: z.string().datetime({ offset: true }).optional().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()),
+    });
+    const qParse = querySchema.safeParse(request.query);
+    const query = qParse.success ? qParse.data : (request.query as any);
     const page = Math.max(1, parseInt(query.page || '1', 10));
     const limit = Math.min(100, Math.max(1, parseInt(query.limit || '20', 10)));
 
+    const fromDate = query.from ? new Date(query.from) : undefined;
+    const toDate = query.to ? new Date(query.to) : undefined;
+    if (fromDate && isNaN(fromDate.getTime())) {
+      return reply.status(422).send({ error: 'INVALID_DATE', message: 'Invalid "from" date format' });
+    }
+    if (toDate && isNaN(toDate.getTime())) {
+      return reply.status(422).send({ error: 'INVALID_DATE', message: 'Invalid "to" date format' });
+    }
+
     const result = await eventRepo.listEvents({
-      page,
-      limit,
+      page, limit,
       orgId: query.orgId,
       orgScope: request.authContext?.orgScope,
       eventType: query.eventType,
       status: query.status as any,
-      from: query.from ? new Date(query.from) : undefined,
-      to: query.to ? new Date(query.to) : undefined,
+      from: fromDate, to: toDate,
     });
 
     return reply.status(200).send({
@@ -118,6 +135,7 @@ export default async function eventRoutes(fastify: FastifyInstance) {
 
     const updated = await eventRepo.updateEvent(id, data);
     request.auditContext = { resourceType: 'event', resourceId: id, beforeState: existing, afterState: updated };
+    await request.writeAudit();
     return reply.status(200).send(updated);
   });
 
@@ -151,6 +169,7 @@ export default async function eventRoutes(fastify: FastifyInstance) {
 
     const updated = await eventRepo.updateEventStatus(id, parseResult.data.status);
     request.auditContext = { resourceType: 'event', resourceId: id, beforeState: { status: existing.status }, afterState: { status: updated.status } };
+    await request.writeAudit();
     return reply.status(200).send(updated);
   });
 
@@ -226,6 +245,7 @@ export default async function eventRoutes(fastify: FastifyInstance) {
     try {
       const reg = await eventRepo.createRegistration({ eventId, clientId });
       request.auditContext = { resourceType: 'registration', resourceId: reg.id, afterState: reg };
+      await request.writeAudit();
       return reply.status(201).send(reg);
     } catch (err: any) {
       if (err.code === '23505') { // unique_violation
@@ -292,6 +312,7 @@ export default async function eventRoutes(fastify: FastifyInstance) {
 
     const updated = await eventRepo.updateRegistrationStatus(id, parseResult.data.status, extras);
     request.auditContext = { resourceType: 'registration', resourceId: id, beforeState: { status: existing.status }, afterState: { status: updated.status } };
+    await request.writeAudit();
     return reply.status(200).send(updated);
   });
 }

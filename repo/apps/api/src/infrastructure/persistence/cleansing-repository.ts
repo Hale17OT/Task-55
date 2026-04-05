@@ -1,5 +1,5 @@
-import { eq, and, desc, count } from 'drizzle-orm';
-import { duplicateCandidates, mergeHistory, dataQualityFlags } from '@studioops/db/schema';
+import { eq, and, desc, count, inArray, sql } from 'drizzle-orm';
+import { duplicateCandidates, mergeHistory, dataQualityFlags, offerings, portfolioItems } from '@studioops/db/schema';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 type Database = PostgresJsDatabase<any>;
 
@@ -45,12 +45,23 @@ export class DrizzleCleansingRepository {
   async listCandidates(params: {
     status?: string;
     recordType?: string;
+    orgScope?: string[];
     page: number;
     limit: number;
   }): Promise<{ data: DuplicateCandidateRecord[]; total: number }> {
     const conditions: any[] = [];
     if (params.status) conditions.push(eq(duplicateCandidates.status, params.status as any));
     if (params.recordType) conditions.push(eq(duplicateCandidates.recordType, params.recordType));
+
+    // Apply org-scope at query level: BOTH recordAId AND recordBId must belong to in-scope orgs
+    if (params.orgScope !== undefined) {
+      if (params.orgScope.length === 0) {
+        conditions.push(sql`false`);
+      } else {
+        const scopedIds = sql`(SELECT id FROM offerings WHERE org_id = ANY(${params.orgScope}) UNION ALL SELECT id FROM portfolio_items WHERE original_org_id = ANY(${params.orgScope}))`;
+        conditions.push(sql`(${duplicateCandidates.recordAId} IN ${scopedIds} AND ${duplicateCandidates.recordBId} IN ${scopedIds})`);
+      }
+    }
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
     const offset = (params.page - 1) * params.limit;
@@ -110,12 +121,24 @@ export class DrizzleCleansingRepository {
   async listFlags(params: {
     status?: string;
     recordType?: string;
+    orgScope?: string[];
     page: number;
     limit: number;
   }): Promise<{ data: any[]; total: number }> {
     const conditions: any[] = [];
     if (params.status) conditions.push(eq(dataQualityFlags.status, params.status));
     if (params.recordType) conditions.push(eq(dataQualityFlags.recordType, params.recordType));
+
+    // Apply org-scope at query level
+    if (params.orgScope !== undefined) {
+      if (params.orgScope.length === 0) {
+        conditions.push(sql`false`);
+      } else {
+        const offeringIds = sql`(SELECT id FROM offerings WHERE org_id = ANY(${params.orgScope}))`;
+        const portfolioIds = sql`(SELECT id FROM portfolio_items WHERE original_org_id = ANY(${params.orgScope}))`;
+        conditions.push(sql`(${dataQualityFlags.recordId} IN ${offeringIds} OR ${dataQualityFlags.recordId} IN ${portfolioIds})`);
+      }
+    }
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
     const offset = (params.page - 1) * params.limit;

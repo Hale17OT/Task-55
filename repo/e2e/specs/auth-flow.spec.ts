@@ -20,9 +20,11 @@ test.describe('Auth - Happy Paths', () => {
     expect((await res.json()).role).toBe('merchant');
   });
 
-  test('refresh returns new tokens', async ({ request }) => {
-    const { refreshToken } = await login(request, ACCOUNTS.client.username, ACCOUNTS.client.password);
-    const res = await request.post(`${BASE}/api/v1/auth/refresh`, { data: { refreshToken } });
+  test('refresh returns new access token via cookie', async ({ request }) => {
+    // Login sets refreshToken as httpOnly cookie on the request context
+    await login(request, ACCOUNTS.client.username, ACCOUNTS.client.password);
+    // Refresh — Playwright sends cookies automatically
+    const res = await request.post(`${BASE}/api/v1/auth/refresh`, { data: {} });
     expect(res.status()).toBe(200);
     expect((await res.json()).accessToken).toBeTruthy();
   });

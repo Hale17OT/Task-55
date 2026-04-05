@@ -67,6 +67,18 @@ export async function applyAuditTriggers(connectionString: string): Promise<void
     $$
   `;
 
+  // Revoke trigger management from the studioops app role if it exists.
+  // This prevents the runtime app from disabling audit immutability triggers.
+  // The SECURITY DEFINER purge function retains necessary privileges.
+  try {
+    await client`REVOKE ALL ON FUNCTION prevent_audit_log_mutation() FROM studioops`;
+    // Revoke ALTER TABLE on audit_logs from app role
+    await client`REVOKE ALL PRIVILEGES ON TABLE audit_logs FROM studioops`;
+    await client`GRANT SELECT, INSERT ON TABLE audit_logs TO studioops`;
+  } catch {
+    // Role may not exist yet or may be the owner — skip silently
+  }
+
   console.log('Audit triggers and retention function applied.');
   await client.end();
 }

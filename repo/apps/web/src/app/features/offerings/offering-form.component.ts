@@ -155,6 +155,9 @@ export class OfferingFormComponent implements OnInit {
     this.visibility = res.visibility;
     this.addons.set(res.addons || []);
     this.currentStatus.set(res.status || 'draft');
+    if (res.access) {
+      this.accessUserIds.set(res.access.map((a: any) => a.userId));
+    }
   }
 
   async onSubmit(): Promise<void> {

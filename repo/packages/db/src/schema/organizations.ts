@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, boolean, timestamp } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, boolean, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 
 export const organizations = pgTable('organizations', {
@@ -16,4 +16,6 @@ export const organizationMembers = pgTable('organization_members', {
   userId: uuid('user_id').notNull().references(() => users.id),
   roleInOrg: varchar('role_in_org', { length: 50 }).notNull().default('member'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [
+  uniqueIndex('org_members_org_user_idx').on(table.orgId, table.userId),
+]);

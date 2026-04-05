@@ -158,4 +158,46 @@ describe('Portfolio Routes', () => {
       expect(res.json().data).toBeInstanceOf(Array);
     });
   });
+
+  describe('Category assignment ownership enforcement', () => {
+    it('rejects assigning item to another merchant category', async () => {
+      // Create a second merchant
+      const m2Name = `m2_port_${Date.now()}`;
+      await app.inject({ method: 'POST', url: '/api/v1/auth/register', payload: { username: m2Name, password: VALID_PASSWORD } });
+      await app.db.execute(sql`UPDATE users SET role = 'merchant' WHERE username = ${m2Name}`);
+      const m2User = await app.db.execute(sql`SELECT id FROM users WHERE username = ${m2Name}`);
+      await app.db.execute(sql`INSERT INTO organization_members (org_id, user_id, role_in_org) VALUES (${orgId}, ${(m2User[0] as any).id}, 'member') ON CONFLICT DO NOTHING`);
+      const m2Login = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { username: m2Name, password: VALID_PASSWORD } });
+      const m2Token = m2Login.json().accessToken;
+
+      // Merchant2 creates a category
+      const catRes = await app.inject({
+        method: 'POST', url: '/api/v1/portfolio/categories',
+        headers: { authorization: `Bearer ${m2Token}` },
+        payload: { name: 'OtherMerchantCat' },
+      });
+      expect(catRes.statusCode).toBe(201);
+      const otherCatId = catRes.json().id;
+
+      // Merchant1 uploads an item
+      const form = new FormData();
+      form.append('file', createTestJpeg(), { filename: 'cat-test.jpg', contentType: 'image/jpeg' });
+      form.append('title', 'CatTest');
+      const uploadRes = await app.inject({
+        method: 'POST', url: '/api/v1/portfolio/upload',
+        headers: { authorization: `Bearer ${merchantToken}`, ...form.getHeaders() },
+        payload: form.getBuffer(),
+      });
+      expect(uploadRes.statusCode).toBe(202);
+      const itemId = uploadRes.json().id;
+
+      // Merchant1 tries to assign their item to Merchant2's category
+      const patchRes = await app.inject({
+        method: 'PATCH', url: `/api/v1/portfolio/${itemId}/category`,
+        headers: { authorization: `Bearer ${merchantToken}` },
+        payload: { categoryId: otherCatId },
+      });
+      expect(patchRes.statusCode).toBe(403);
+    });
+  });
 });

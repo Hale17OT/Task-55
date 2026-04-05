@@ -1,4 +1,5 @@
 import { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import { eq, and, desc, count, gte, lte, sql } from 'drizzle-orm';
 import {
   permissions, rolePermissions, rules, sessions, refreshTokens,
@@ -87,6 +88,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     }
 
     request.auditContext = { resourceType: 'role_permissions', resourceId: role, afterState: { permissions: parseResult.data.permissions } };
+    await request.writeAudit();
 
     return reply.status(200).send({ role, permissions: parseResult.data.permissions });
   });
@@ -160,6 +162,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     }).returning();
 
     request.auditContext = { resourceType: 'rule', resourceId: row.id, afterState: row };
+    await request.writeAudit();
     return reply.status(201).send(row);
   });
 
@@ -183,6 +186,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
     const [row] = await fastify.db.update(rules).set(updateData).where(eq(rules.id, id)).returning();
     request.auditContext = { resourceType: 'rule', resourceId: id, beforeState: existing[0], afterState: row };
+    await request.writeAudit();
     return reply.status(200).send(row);
   });
 
@@ -194,6 +198,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
     await fastify.db.update(rules).set({ status: 'deprecated' }).where(eq(rules.id, id));
     request.auditContext = { resourceType: 'rule', resourceId: id, beforeState: existing[0] };
+    await request.writeAudit();
     return reply.status(204).send();
   });
 
@@ -260,17 +265,17 @@ export default async function adminRoutes(fastify: FastifyInstance) {
       return reply.status(400).send({ error: 'VALIDATION_ERROR', message: 'Validation failed', details: parseResult.error.issues.map(i => i.message) });
     }
 
-    // Sensitive config keys must always be encrypted at rest
-    const SENSITIVE_KEY_PATTERNS = [
-      /secret/i, /password/i, /token/i, /key/i, /credential/i,
-      /proxy/i, /service.account/i, /api.key/i, /auth/i,
-    ];
-    const isSensitiveKey = SENSITIVE_KEY_PATTERNS.some(p => p.test(key));
+    // Default to encrypted storage. Only explicitly allowlisted non-sensitive keys may be plaintext.
+    const NON_SENSITIVE_KEYS = new Set([
+      'STUDIO_NAME', 'LOGO_URL', 'TIMEZONE', 'LOCALE', 'BUSINESS_HOURS',
+      'DEFAULT_CURRENCY', 'DATE_FORMAT', 'COMPANY_ADDRESS',
+    ]);
+    const isEncrypted = parseResult.data.isEncrypted !== false || !NON_SENSITIVE_KEYS.has(key);
 
-    if (isSensitiveKey && !parseResult.data.isEncrypted) {
+    if (!isEncrypted && !NON_SENSITIVE_KEYS.has(key)) {
       return reply.status(422).send({
         error: 'ENCRYPTION_REQUIRED',
-        message: `Config key "${key}" is classified as sensitive and must be stored encrypted (isEncrypted: true)`,
+        message: `Config key "${key}" must be stored encrypted. Only allowlisted non-sensitive keys (${[...NON_SENSITIVE_KEYS].join(', ')}) may be plaintext.`,
       });
     }
 
@@ -278,7 +283,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     let iv: string | null = null;
     let authTag: string | null = null;
 
-    if (parseResult.data.isEncrypted) {
+    if (isEncrypted) {
       const encrypted = encrypt(parseResult.data.value, encryptionKey);
       storedValue = encrypted.ciphertext;
       iv = encrypted.iv;
@@ -293,7 +298,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
         encryptedValue: storedValue,
         iv,
         authTag,
-        isEncrypted: parseResult.data.isEncrypted,
+        isEncrypted,
         updatedBy: request.user.sub,
         updatedAt: new Date(),
       }).where(eq(configEntries.key, key));
@@ -303,13 +308,14 @@ export default async function adminRoutes(fastify: FastifyInstance) {
         encryptedValue: storedValue,
         iv,
         authTag,
-        isEncrypted: parseResult.data.isEncrypted,
+        isEncrypted,
         updatedBy: request.user.sub,
       });
     }
 
     request.auditContext = { resourceType: 'config', resourceId: key };
-    return reply.status(200).send({ key, isEncrypted: parseResult.data.isEncrypted });
+    await request.writeAudit();
+    return reply.status(200).send({ key, isEncrypted });
   });
 
   // POST /admin/config/:key/reveal
@@ -347,6 +353,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
       );
 
       request.auditContext = { resourceType: 'config', resourceId: key, action: 'config_reveal' };
+      await request.writeAudit();
       return reply.status(200).send({ key, value: decrypted });
     } catch (err) {
       request.log.error({ err, key }, 'Config decryption failed');
@@ -408,6 +415,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
       .where(eq(refreshTokens.sessionId, sessionId));
 
     request.auditContext = { resourceType: 'session', resourceId: sessionId, action: 'session_revoked' };
+    await request.writeAudit();
     return reply.status(204).send();
   });
 
@@ -441,10 +449,12 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
   // POST /admin/whitelist
   fastify.post('/whitelist', async (request, reply) => {
-    const body = request.body as { ruleKey: string; userId: string };
-    if (!body.ruleKey || !body.userId) {
-      return reply.status(400).send({ error: 'VALIDATION_ERROR', message: 'ruleKey and userId are required' });
+    const whitelistSchema = z.object({ ruleKey: z.string().min(1), userId: z.string().uuid() });
+    const parseResult = whitelistSchema.safeParse(request.body);
+    if (!parseResult.success) {
+      return reply.status(400).send({ error: 'VALIDATION_ERROR', message: 'Validation failed', details: parseResult.error.issues.map(i => i.message) });
     }
+    const body = parseResult.data;
 
     try {
       const [row] = await fastify.db.insert(ruleWhitelist).values({
@@ -454,6 +464,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
       }).returning();
 
       request.auditContext = { resourceType: 'rule_whitelist', resourceId: row.id, action: 'whitelist_grant', afterState: row };
+      await request.writeAudit();
       return reply.status(201).send(row);
     } catch (err: any) {
       if (err.code === '23505') {
@@ -474,6 +485,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
     await fastify.db.delete(ruleWhitelist).where(eq(ruleWhitelist.id, id));
     request.auditContext = { resourceType: 'rule_whitelist', resourceId: id, action: 'whitelist_revoke', beforeState: existing[0] };
+    await request.writeAudit();
     return reply.status(204).send();
   });
 
@@ -507,10 +519,12 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
   // POST /admin/org-members — assign user to org
   fastify.post('/org-members', async (request, reply) => {
-    const body = request.body as { orgId: string; userId: string; roleInOrg?: string };
-    if (!body.orgId || !body.userId) {
-      return reply.status(400).send({ error: 'VALIDATION_ERROR', message: 'orgId and userId are required' });
+    const orgMemberSchema = z.object({ orgId: z.string().uuid(), userId: z.string().uuid(), roleInOrg: z.string().max(50).optional() });
+    const parseResult = orgMemberSchema.safeParse(request.body);
+    if (!parseResult.success) {
+      return reply.status(400).send({ error: 'VALIDATION_ERROR', message: 'Validation failed', details: parseResult.error.issues.map(i => i.message) });
     }
+    const body = parseResult.data;
 
     // Verify org and user exist
     const [org] = await fastify.db.select({ id: organizations.id }).from(organizations).where(eq(organizations.id, body.orgId)).limit(1);
@@ -527,6 +541,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
       }).onConflictDoNothing();
 
       request.auditContext = { resourceType: 'org_member', action: 'member_added', afterState: body };
+      await request.writeAudit();
       return reply.status(201).send({ orgId: body.orgId, userId: body.userId, roleInOrg: body.roleInOrg || 'member' });
     } catch (err: any) {
       if (err.code === '23505') {
@@ -545,6 +560,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     );
 
     request.auditContext = { resourceType: 'org_member', action: 'member_removed', beforeState: { orgId, userId } };
+    await request.writeAudit();
     return reply.status(204).send();
   });
 }

@@ -11,7 +11,6 @@ export interface UserSession {
 
 interface LoginResponse {
   accessToken: string;
-  refreshToken: string;
   expiresIn: number;
 }
 
@@ -50,7 +49,7 @@ export class AuthService {
       const res = await firstValueFrom(
         this.http.post<LoginResponse>('/api/v1/auth/login', { username, password }),
       );
-      this.setTokens(res.accessToken, res.refreshToken);
+      this.setTokens(res.accessToken);
       await this.fetchSession();
       this.router.navigate([this.getDefaultRoute()]);
     } finally {
@@ -70,14 +69,12 @@ export class AuthService {
   }
 
   async refreshToken(): Promise<string | null> {
-    const refreshToken = localStorage.getItem('refreshToken');
-    if (!refreshToken) return null;
-
+    // Refresh token is sent automatically via httpOnly cookie
     try {
       const res = await firstValueFrom(
-        this.http.post<LoginResponse>('/api/v1/auth/refresh', { refreshToken }),
+        this.http.post<LoginResponse>('/api/v1/auth/refresh', {}),
       );
-      this.setTokens(res.accessToken, res.refreshToken);
+      this.setTokens(res.accessToken);
       return res.accessToken;
     } catch {
       this.clearSession();
@@ -106,17 +103,14 @@ export class AuthService {
     }
   }
 
-  private setTokens(accessToken: string, refreshToken: string): void {
+  private setTokens(accessToken: string): void {
     this._token.set(accessToken);
-    localStorage.setItem('accessToken', accessToken);
-    localStorage.setItem('refreshToken', refreshToken);
+    // In-memory only — no Web Storage. httpOnly cookies handle persistence.
   }
 
   private clearSession(): void {
     this._token.set(null);
     this._user.set(null);
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
   }
 
   /** Promise that resolves when the initial session check is complete */
@@ -124,12 +118,19 @@ export class AuthService {
   private _resolveReady!: () => void;
 
   private restoreSession(): void {
-    const token = localStorage.getItem('accessToken');
+    // No stored token — try silent refresh via httpOnly cookie
+    const token = this._token();
     if (token) {
-      this._token.set(token);
       this.fetchSession().finally(() => this._resolveReady());
     } else {
-      this._resolveReady();
+      // Try silent refresh via httpOnly cookie
+      this.refreshToken().then(newToken => {
+        if (newToken) {
+          this.fetchSession().finally(() => this._resolveReady());
+        } else {
+          this._resolveReady();
+        }
+      }).catch(() => this._resolveReady());
     }
   }
 }

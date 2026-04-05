@@ -48,6 +48,8 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
     try {
       const result = await registerUseCase.execute(parseResult.data);
+      request.auditContext = { resourceType: 'auth', action: 'auth.register', afterState: { id: result.id, username: result.username } };
+      await request.writeAudit();
       return reply.status(201).send(result);
     } catch (err) {
       if (err instanceof ValidationError) {
@@ -82,9 +84,24 @@ export default async function authRoutes(fastify: FastifyInstance) {
       const result = await loginUseCase.execute(parseResult.data);
       const accessToken = fastify.jwt.sign(result.accessTokenPayload);
 
+      const isSecure = fastify.appConfig?.NODE_ENV === 'production';
+
+      // Access token: httpOnly cookie + returned in body (SPA needs it for Authorization header)
+      reply.setCookie('accessToken', accessToken, {
+        httpOnly: true, secure: isSecure, sameSite: 'strict',
+        path: '/', maxAge: result.expiresIn,
+      });
+      // Refresh token: httpOnly cookie ONLY — never in response body to minimize XSS exposure
+      reply.setCookie('refreshToken', result.refreshToken, {
+        httpOnly: true, secure: isSecure, sameSite: 'strict',
+        path: '/api/v1/auth', maxAge: 28800,
+      });
+
+      request.auditContext = { resourceType: 'auth', action: 'auth.login' };
+      await request.writeAudit();
+
       return reply.status(200).send({
         accessToken,
-        refreshToken: result.refreshToken,
         expiresIn: result.expiresIn,
       });
     } catch (err) {
@@ -108,22 +125,38 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
   // POST /auth/refresh
   fastify.post('/refresh', async (request, reply) => {
-    const parseResult = refreshSchema.safeParse(request.body);
-    if (!parseResult.success) {
+    // Accept refresh token from httpOnly cookie or body (backward compat for API tests)
+    const bodyToken = (request.body as any)?.refreshToken;
+    const cookieToken = (request as any).cookies?.refreshToken;
+    const refreshToken = bodyToken || cookieToken;
+
+    if (!refreshToken) {
       return reply.status(400).send({
         error: 'VALIDATION_ERROR',
-        message: 'Validation failed',
-        details: parseResult.error.issues.map((i) => i.message),
+        message: 'Refresh token is required',
       });
     }
 
     try {
-      const result = await refreshUseCase.execute(parseResult.data);
+      const result = await refreshUseCase.execute({ refreshToken });
       const accessToken = fastify.jwt.sign(result.accessTokenPayload);
+
+      const isSecure = fastify.appConfig?.NODE_ENV === 'production';
+
+      reply.setCookie('accessToken', accessToken, {
+        httpOnly: true, secure: isSecure, sameSite: 'strict',
+        path: '/', maxAge: result.expiresIn,
+      });
+      reply.setCookie('refreshToken', result.refreshToken, {
+        httpOnly: true, secure: isSecure, sameSite: 'strict',
+        path: '/api/v1/auth', maxAge: 28800,
+      });
+
+      request.auditContext = { resourceType: 'auth', action: 'auth.refresh' };
+      await request.writeAudit();
 
       return reply.status(200).send({
         accessToken,
-        refreshToken: result.refreshToken,
         expiresIn: result.expiresIn,
       });
     } catch (err) {
@@ -155,6 +188,8 @@ export default async function authRoutes(fastify: FastifyInstance) {
       await sessionRepo.revokeAllRefreshTokensForUser(userId);
     }
 
+    request.auditContext = { resourceType: 'auth', action: 'auth.logout' };
+    await request.writeAudit();
     return reply.status(204).send();
   });
 
@@ -198,6 +233,8 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
     const revokedCount = await sessionRepo.revokeAllRefreshTokensForUser(userId);
 
+    request.auditContext = { resourceType: 'auth', action: 'auth.revoke_sessions', afterState: { userId, revokedCount } };
+    await request.writeAudit();
     return reply.status(200).send({ revokedCount });
   });
 }

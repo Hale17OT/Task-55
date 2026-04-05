@@ -61,7 +61,7 @@ DATABASE_URL="postgres://studioops:dev_password_change_me@127.0.0.1:54320/studio
 cd apps/api
 DATABASE_URL="postgres://studioops:dev_password_change_me@127.0.0.1:54320/studioops" npx tsx src/index.ts
 
-# Start Angular (proxies /api to localhost:3100 via proxy.conf.json)
+# Start Angular (proxies /api to localhost:3000 via proxy.conf.json)
 cd apps/web && npx ng serve
 ```
 
@@ -120,7 +120,7 @@ Infrastructure Layer (adapters implementing ports)
 | Testing | Vitest (unit/integration), Playwright (E2E) |
 | Container | Docker, Docker Compose |
 
-## API Endpoints (51 routes)
+## API Endpoints
 
 ### Auth
 | Method | Path | Auth | Description |
@@ -164,8 +164,17 @@ Infrastructure Layer (adapters implementing ports)
 | GET | `/api/v1/portfolio/:id` | Yes | Get item with tags |
 | DELETE | `/api/v1/portfolio/:id` | Merchant | Soft delete |
 | PATCH | `/api/v1/portfolio/:id/tags` | Merchant | Update tags |
+| PATCH | `/api/v1/portfolio/:id/category` | Merchant | Assign category |
 | GET | `/api/v1/portfolio/tags` | Yes | List tags |
 | GET | `/api/v1/portfolio/categories` | Yes | List categories |
+| POST | `/api/v1/portfolio/categories` | Merchant | Create category |
+| PUT | `/api/v1/portfolio/categories/:id` | Merchant | Update category |
+| DELETE | `/api/v1/portfolio/categories/:id` | Merchant | Delete category |
+
+### Media
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/v1/media/*` | Yes | Serve processed/preview files (org-scoped) |
 
 ### Analytics
 | Method | Path | Auth | Description |
@@ -198,6 +207,18 @@ Infrastructure Layer (adapters implementing ports)
 | POST | `/api/v1/admin/config/:key/reveal` | Admin | Reveal (re-auth) |
 | GET | `/api/v1/admin/sessions` | Admin | Active sessions |
 | DELETE | `/api/v1/admin/sessions/:sessionId` | Admin | Revoke session |
+| GET | `/api/v1/admin/whitelist` | Admin | List rule whitelist |
+| POST | `/api/v1/admin/whitelist` | Admin | Grant whitelist bypass |
+| DELETE | `/api/v1/admin/whitelist/:id` | Admin | Revoke whitelist |
+| GET | `/api/v1/admin/org-members` | Admin | List org memberships |
+| POST | `/api/v1/admin/org-members` | Admin | Assign user to org |
+| DELETE | `/api/v1/admin/org-members/:orgId/:userId` | Admin | Remove from org |
+
+### Import & Cleansing
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/api/v1/import/offerings` | Merchant | Bulk import offerings |
+| POST | `/api/v1/import/cleanse` | Ops/Admin | Run internal-feed cleansing |
 
 ## Browser Requirement
 

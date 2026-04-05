@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { NotificationService } from '../../core/services/notification.service';
+import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-portfolio',
@@ -12,19 +13,21 @@ import { NotificationService } from '../../core/services/notification.service';
     <div class="space-y-6">
       <div class="flex items-center justify-between">
         <h2 class="text-2xl font-semibold tracking-tight">Portfolio</h2>
-        <div class="flex items-center gap-2">
-          <select [(ngModel)]="uploadCategoryId" class="rounded border px-2 py-1.5 text-sm">
-            <option value="">No category</option>
-            @for (cat of categories(); track cat.id) {
-              <option [value]="cat.id">{{ cat.name }}</option>
-            }
-          </select>
-          <label class="rounded-md bg-[hsl(var(--primary))] px-4 py-2 text-sm font-medium text-[hsl(var(--primary-foreground))]"
-            [class.opacity-50]="uploadStatus() === 'uploading'" [class.cursor-not-allowed]="uploadStatus() === 'uploading'" [class.cursor-pointer]="uploadStatus() !== 'uploading'" [class.hover:opacity-90]="uploadStatus() !== 'uploading'">
-            {{ uploadStatus() === 'uploading' ? 'Uploading...' : 'Upload' }}
-            <input type="file" accept="image/jpeg,image/png,image/tiff,video/mp4,video/quicktime" (change)="onFileSelected($event)" class="hidden" [disabled]="uploadStatus() === 'uploading'" />
-          </label>
-        </div>
+        @if (canEdit()) {
+          <div class="flex items-center gap-2">
+            <select [(ngModel)]="uploadCategoryId" class="rounded border px-2 py-1.5 text-sm">
+              <option value="">No category</option>
+              @for (cat of categories(); track cat.id) {
+                <option [value]="cat.id">{{ cat.name }}</option>
+              }
+            </select>
+            <label class="rounded-md bg-[hsl(var(--primary))] px-4 py-2 text-sm font-medium text-[hsl(var(--primary-foreground))]"
+              [class.opacity-50]="uploadStatus() === 'uploading'" [class.cursor-not-allowed]="uploadStatus() === 'uploading'" [class.cursor-pointer]="uploadStatus() !== 'uploading'" [class.hover:opacity-90]="uploadStatus() !== 'uploading'">
+              {{ uploadStatus() === 'uploading' ? 'Uploading...' : 'Upload' }}
+              <input type="file" accept="image/jpeg,image/png,image/tiff,video/mp4,video/quicktime" (change)="onFileSelected($event)" class="hidden" [disabled]="uploadStatus() === 'uploading'" />
+            </label>
+          </div>
+        }
       </div>
 
       @if (uploadStatus()) {
@@ -47,7 +50,7 @@ import { NotificationService } from '../../core/services/notification.service';
               <div class="mb-2 flex items-center justify-between">
                 <span class="text-sm font-medium">{{ item.title }}</span>
                 <div class="flex items-center gap-1">
-                  <button (click)="deleteItem(item.id)" class="rounded px-1.5 py-0.5 text-xs text-red-600 hover:bg-red-50">Delete</button>
+                  @if (canEdit()) { <button (click)="deleteItem(item.id)" class="rounded px-1.5 py-0.5 text-xs text-red-600 hover:bg-red-50">Delete</button> }
                   <span class="rounded-full px-2 py-0.5 text-xs"
                     [class]="item.status === 'ready' ? 'bg-green-100 text-green-800' : item.status === 'failed' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'">
                     {{ item.status }}
@@ -79,16 +82,18 @@ import { NotificationService } from '../../core/services/notification.service';
                 }
                 @if (item.durationSeconds) { · {{ item.durationSeconds }}s }
               </div>
-              <!-- Category assignment -->
-              <div class="mt-2">
-                <select (change)="assignCategory(item.id, $event)"
-                  class="w-full rounded border px-2 py-1 text-xs text-[hsl(var(--muted-foreground))]">
-                  <option value="" [selected]="!item.categoryId">No category</option>
-                  @for (cat of categories(); track cat.id) {
-                    <option [value]="cat.id" [selected]="item.categoryId === cat.id">{{ cat.name }}</option>
-                  }
-                </select>
-              </div>
+              <!-- Category assignment (merchant/admin only) -->
+              @if (canEdit()) {
+                <div class="mt-2">
+                  <select (change)="assignCategory(item.id, $event)"
+                    class="w-full rounded border px-2 py-1 text-xs text-[hsl(var(--muted-foreground))]">
+                    <option value="" [selected]="!item.categoryId">No category</option>
+                    @for (cat of categories(); track cat.id) {
+                      <option [value]="cat.id" [selected]="item.categoryId === cat.id">{{ cat.name }}</option>
+                    }
+                  </select>
+                </div>
+              }
               <!-- Tag editing -->
               <div class="mt-2 flex flex-wrap gap-1">
                 @if (item.tags?.length) {
@@ -96,7 +101,7 @@ import { NotificationService } from '../../core/services/notification.service';
                     <span class="rounded-full bg-[hsl(var(--accent))] px-2 py-0.5 text-xs">{{ tag.name }}</span>
                   }
                 }
-                <button (click)="editTags(item.id)" class="rounded-full border border-dashed px-2 py-0.5 text-xs text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))]">+ tags</button>
+                @if (canEdit()) { <button (click)="editTags(item.id)" class="rounded-full border border-dashed px-2 py-0.5 text-xs text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))]">+ tags</button> }
               </div>
             </div>
           }
@@ -108,7 +113,8 @@ import { NotificationService } from '../../core/services/notification.service';
         </div>
       }
 
-      <!-- Category Management -->
+      <!-- Category Management (merchant/admin only) -->
+      @if (canEdit()) {
       <div class="mt-8 rounded-lg border bg-[hsl(var(--card))] p-4">
         <h3 class="mb-3 text-sm font-medium">Categories</h3>
         <div class="space-y-2">
@@ -125,6 +131,7 @@ import { NotificationService } from '../../core/services/notification.service';
           </div>
         </div>
       </div>
+      }
 
       <!-- Tag Edit Dialog -->
       @if (editingTagsItemId()) {
@@ -145,6 +152,8 @@ import { NotificationService } from '../../core/services/notification.service';
 })
 export class PortfolioComponent implements OnInit {
   private http = inject(HttpClient);
+  private auth = inject(AuthService);
+  canEdit = () => ['merchant', 'administrator'].includes(this.auth.role());
   items = signal<any[]>([]);
   loading = signal(true);
   uploadStatus = signal<string>('');

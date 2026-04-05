@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import sensible from '@fastify/sensible';
 import multipart from '@fastify/multipart';
+import cookie from '@fastify/cookie';
 import databasePlugin from './infrastructure/plugins/database';
 import errorHandlerPlugin from './infrastructure/plugins/error-handler';
 import authPlugin from './infrastructure/plugins/auth';
@@ -42,6 +43,9 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
       redact: {
         paths: [
           'req.headers.authorization',
+          'req.headers.cookie',
+          'req.headers["set-cookie"]',
+          'res.headers["set-cookie"]',
           'req.body.password',
           'req.body.currentPassword',
           'req.body.newPassword',
@@ -69,6 +73,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   await fastify.register(multipart, {
     limits: { fileSize: 500 * 1024 * 1024 }, // 500MB
   });
+  await fastify.register(cookie);
 
   // --- Database ---
   await fastify.register(databasePlugin, {

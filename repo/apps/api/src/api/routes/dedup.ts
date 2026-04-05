@@ -21,11 +21,13 @@ export default async function dedupRoutes(fastify: FastifyInstance) {
     return null;
   }
 
-  // Helper: check if a candidate's records are within the user's org scope
-  async function isCandidateInOrgScope(candidate: { recordType: string; recordAId: string }, orgScope: string[]): Promise<boolean> {
-    const orgId = await getRecordOrgId(candidate.recordType, candidate.recordAId);
-    if (!orgId) return false;
-    return orgScope.includes(orgId);
+  // Helper: check if BOTH of a candidate's records are within the user's org scope
+  async function isCandidateInOrgScope(candidate: { recordType: string; recordAId: string; recordBId: string }, orgScope: string[]): Promise<boolean> {
+    const orgA = await getRecordOrgId(candidate.recordType, candidate.recordAId);
+    if (!orgA || !orgScope.includes(orgA)) return false;
+    const orgB = await getRecordOrgId(candidate.recordType, candidate.recordBId);
+    if (!orgB || !orgScope.includes(orgB)) return false;
+    return true;
   }
 
   // GET /dedup/queue
@@ -36,29 +38,20 @@ export default async function dedupRoutes(fastify: FastifyInstance) {
     const page = Math.max(1, parseInt(query.page || '1', 10));
     const limit = Math.min(100, Math.max(1, parseInt(query.limit || '20', 10)));
 
+    // Org scope applied at DB query level (before pagination)
+    const orgScope = request.user.role === 'administrator' ? undefined : (request.authContext?.orgScope ?? []);
+
     const result = await cleansingRepo.listCandidates({
       status: query.status || 'pending',
       recordType: query.recordType,
+      orgScope,
       page,
       limit,
     });
 
-    // Filter by org scope for non-admin users
-    let data = result.data;
-    if (request.user.role !== 'administrator') {
-      const orgScope = request.authContext?.orgScope ?? [];
-      const filtered = [];
-      for (const candidate of data) {
-        if (await isCandidateInOrgScope(candidate, orgScope)) {
-          filtered.push(candidate);
-        }
-      }
-      data = filtered;
-    }
-
     return reply.status(200).send({
-      data,
-      meta: { page, limit, total: data.length, totalPages: Math.ceil(data.length / limit) || 1 },
+      data: result.data,
+      meta: { page, limit, total: result.total, totalPages: Math.ceil(result.total / limit) || 1 },
     });
   });
 
@@ -118,6 +111,17 @@ export default async function dedupRoutes(fastify: FastifyInstance) {
       return reply.status(409).send({ error: 'CANDIDATE_ALREADY_RESOLVED', message: `Candidate is already ${candidate.status}`, currentStatus: candidate.status });
     }
 
+    // Enforce that merge targets match the candidate's actual record pair
+    const validPair = (survivingRecordId === candidate.recordAId && mergedRecordId === candidate.recordBId)
+      || (survivingRecordId === candidate.recordBId && mergedRecordId === candidate.recordAId);
+    if (!validPair) {
+      return reply.status(422).send({
+        error: 'MERGE_TARGET_MISMATCH',
+        message: 'survivingRecordId and mergedRecordId must match the candidate record pair',
+        expected: { recordAId: candidate.recordAId, recordBId: candidate.recordBId },
+      });
+    }
+
     // Org-scope check for non-admin users
     if (request.user.role !== 'administrator') {
       const orgScope = request.authContext?.orgScope ?? [];
@@ -164,6 +168,45 @@ export default async function dedupRoutes(fastify: FastifyInstance) {
 
       // Soft-delete the merged offering (archive it)
       await offeringRepo.updateStatus(mergedRecordId, 'archived');
+    } else if (candidate.recordType === 'portfolio_item') {
+      const recordA = await portfolioRepo.findById(survivingRecordId);
+      const recordB = await portfolioRepo.findById(mergedRecordId);
+
+      if (!recordA || !recordB) {
+        return reply.status(404).send({ error: 'RECORD_NOT_FOUND', message: 'One or both records not found' });
+      }
+
+      if (recordA.originalOrgId !== recordB.originalOrgId) {
+        return reply.status(422).send({ error: 'ORG_MISMATCH', message: 'Records belong to different organizations' });
+      }
+
+      // Build provenance
+      const provenance = {
+        original_creators: [
+          { user_id: recordB.merchantId, created_at: recordB.createdAt, org_id: recordB.originalOrgId },
+        ],
+        merge_chain: [{
+          merged_id: mergedRecordId,
+          surviving_id: survivingRecordId,
+          merged_by: request.user.sub,
+          merged_at: new Date().toISOString(),
+        }],
+        snapshot: recordB,
+      };
+
+      // Record merge history
+      await cleansingRepo.createMergeHistory({
+        duplicateCandidateId: candidateId,
+        survivingId: survivingRecordId,
+        mergedId: mergedRecordId,
+        provenance,
+        performedBy: request.user.sub,
+      });
+
+      // Soft-delete the merged portfolio item
+      await portfolioRepo.softDelete(mergedRecordId);
+    } else {
+      return reply.status(422).send({ error: 'UNSUPPORTED_RECORD_TYPE', message: `Merge not supported for record type: ${candidate.recordType}` });
     }
 
     // Update candidate status
@@ -174,6 +217,7 @@ export default async function dedupRoutes(fastify: FastifyInstance) {
       resourceId: candidateId,
       afterState: { status: 'merged', survivingRecordId, mergedRecordId },
     };
+    await request.writeAudit();
 
     return reply.status(200).send({
       candidateId,
@@ -213,6 +257,7 @@ export default async function dedupRoutes(fastify: FastifyInstance) {
       resourceId: candidateId,
       afterState: { status: 'dismissed' },
     };
+    await request.writeAudit();
 
     return reply.status(200).send({ candidateId, status: 'dismissed' });
   });
@@ -232,29 +277,20 @@ export default async function dedupRoutes(fastify: FastifyInstance) {
     const page = Math.max(1, parseInt(query.page || '1', 10));
     const limit = Math.min(100, Math.max(1, parseInt(query.limit || '20', 10)));
 
+    // Org scope applied at DB query level (before pagination)
+    const orgScope = request.user.role === 'administrator' ? undefined : (request.authContext?.orgScope ?? []);
+
     const result = await cleansingRepo.listFlags({
       status: query.status || 'open',
       recordType: query.recordType,
+      orgScope,
       page,
       limit,
     });
 
-    // Filter by org scope for non-admin users
-    let data = result.data;
-    if (request.user.role !== 'administrator') {
-      const orgScope = request.authContext?.orgScope ?? [];
-      const filtered = [];
-      for (const flag of data) {
-        if (await isFlagInOrgScope(flag, orgScope)) {
-          filtered.push(flag);
-        }
-      }
-      data = filtered;
-    }
-
     return reply.status(200).send({
-      data,
-      meta: { page, limit, total: data.length, totalPages: Math.ceil(data.length / limit) || 1 },
+      data: result.data,
+      meta: { page, limit, total: result.total, totalPages: Math.ceil(result.total / limit) || 1 },
     });
   });
 
@@ -275,7 +311,15 @@ export default async function dedupRoutes(fastify: FastifyInstance) {
       }
     }
 
+    // Verify flag exists before resolving
+    const existingFlag = await cleansingRepo.findFlagById(id);
+    if (!existingFlag) {
+      return reply.status(404).send({ error: 'FLAG_NOT_FOUND', message: 'Flag not found' });
+    }
+
     await cleansingRepo.resolveFlag(id, request.user.sub);
+    request.auditContext = { resourceType: 'data_quality_flag', resourceId: id, action: 'flag.resolve' };
+    await request.writeAudit();
     return reply.status(200).send({ id, status: 'resolved' });
   });
 }

@@ -6,6 +6,7 @@ export const rules = pgTable('rules', {
   id: uuid('id').primaryKey().defaultRandom(),
   ruleKey: varchar('rule_key', { length: 100 }).notNull(),
   version: integer('version').notNull().default(1),
+  description: varchar('description', { length: 500 }),
   config: jsonb('config').notNull(), // { limit, window, cooldownSeconds }
   effectiveFrom: timestamp('effective_from', { withTimezone: true }).notNull(),
   effectiveTo: timestamp('effective_to', { withTimezone: true }),

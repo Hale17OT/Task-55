@@ -50,6 +50,7 @@ export default async function offeringRoutes(fastify: FastifyInstance) {
       resourceId: offering.id,
       afterState: offering,
     };
+    await request.writeAudit();
 
     // Auto-cleansing: normalize, detect outliers, find duplicates (fire-and-forget)
     (async () => {
@@ -156,14 +157,19 @@ export default async function offeringRoutes(fastify: FastifyInstance) {
     }
 
     if (role !== 'administrator' && role !== 'operations') {
-      if (offering.visibility === 'private' && offering.merchantId !== request.user?.sub) {
+      // Guest/client can only see active offerings (owner/merchant can see their own in any status)
+      const isOwner = request.user?.sub && offering.merchantId === request.user.sub;
+      if (!isOwner && offering.status !== 'active') {
+        return reply.status(404).send({ error: 'NOT_FOUND', message: 'Offering not found' });
+      }
+      if (offering.visibility === 'private' && !isOwner) {
         return reply.status(404).send({ error: 'NOT_FOUND', message: 'Offering not found' });
       }
       if (offering.visibility === 'restricted') {
         const hasAccess = request.user?.sub
           ? await offeringRepo.hasAccess(id, request.user.sub)
           : false;
-        if (!hasAccess && offering.merchantId !== request.user?.sub) {
+        if (!hasAccess && !isOwner) {
           return reply.status(404).send({ error: 'NOT_FOUND', message: 'Offering not found' });
         }
       }
@@ -215,6 +221,7 @@ export default async function offeringRoutes(fastify: FastifyInstance) {
       beforeState: existing,
       afterState: updated,
     };
+    await request.writeAudit();
 
     return reply.status(200).send(updated);
   });
@@ -272,6 +279,7 @@ export default async function offeringRoutes(fastify: FastifyInstance) {
       beforeState: { status: existing.status },
       afterState: { status: updated.status },
     };
+    await request.writeAudit();
 
     return reply.status(200).send(updated);
   });
@@ -308,6 +316,7 @@ export default async function offeringRoutes(fastify: FastifyInstance) {
     try {
       const addon = await offeringRepo.createAddon(id, parseResult.data);
       request.auditContext = { resourceType: 'offering_addon', resourceId: addon.id, afterState: addon };
+    await request.writeAudit();
       return reply.status(201).send(addon);
     } catch (err: any) {
       if (err.code === '23505') { // unique violation
@@ -345,6 +354,7 @@ export default async function offeringRoutes(fastify: FastifyInstance) {
 
     await offeringRepo.deleteAddon(addonId);
     request.auditContext = { resourceType: 'offering_addon', resourceId: addonId, beforeState: addon };
+    await request.writeAudit();
     return reply.status(204).send();
   });
 
@@ -422,6 +432,8 @@ export default async function offeringRoutes(fastify: FastifyInstance) {
     const granted = validUserIds.length > 0
       ? await offeringRepo.grantAccess(id, validUserIds, request.user.sub)
       : 0;
+    request.auditContext = { resourceType: 'offering_access', resourceId: id, action: 'offering.grant_access', afterState: { granted, validUserIds } };
+    await request.writeAudit();
     return reply.status(200).send({ granted, rejected: rejected.length > 0 ? rejected : undefined });
   });
 
@@ -447,6 +459,8 @@ export default async function offeringRoutes(fastify: FastifyInstance) {
     }
 
     await offeringRepo.revokeAccess(id, userId);
+    request.auditContext = { resourceType: 'offering_access', resourceId: id, action: 'offering.revoke_access', beforeState: { userId } };
+    await request.writeAudit();
     return reply.status(204).send();
   });
 }

@@ -74,12 +74,12 @@ export class DrizzleSessionRepository implements SessionRepositoryPort {
 
     let count = 0;
     for (const sid of sessionIds) {
-      const result = await this.db
+      const rows = await this.db
         .update(refreshTokens)
         .set({ used: true })
-        .where(and(eq(refreshTokens.sessionId, sid), eq(refreshTokens.used, false)));
-      // Drizzle doesn't return affected count easily in all cases, so count sessions
-      count++;
+        .where(and(eq(refreshTokens.sessionId, sid), eq(refreshTokens.used, false)))
+        .returning({ id: refreshTokens.id });
+      count += rows.length;
     }
 
     // Also revoke all sessions

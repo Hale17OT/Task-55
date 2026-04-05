@@ -5,6 +5,12 @@ import type { FastifyInstance } from 'fastify';
 
 const VALID_PASSWORD = 'ValidPass123!@';
 
+function getRefreshTokenFromCookies(res: any): string {
+  const cookies = res.cookies as Array<{ name: string; value: string }>;
+  const cookie = cookies.find((c: any) => c.name === 'refreshToken');
+  return cookie?.value || '';
+}
+
 describe('Auth Routes', () => {
   let app: FastifyInstance;
 
@@ -95,8 +101,8 @@ describe('Auth Routes', () => {
       expect(response.statusCode).toBe(200);
       const body = response.json();
       expect(body.accessToken).toBeDefined();
-      expect(body.refreshToken).toBeDefined();
       expect(body.expiresIn).toBe(1800);
+      // refreshToken is in httpOnly cookie, not in response body
     });
 
     it('returns 401 for wrong password', async () => {
@@ -135,6 +141,24 @@ describe('Auth Routes', () => {
     });
   });
 
+  describe('Lockout after repeated failures', () => {
+    it('returns 429 after 5 failed attempts', async () => {
+      const username = `lockoutuser_${Date.now()}`;
+      await app.inject({ method: 'POST', url: '/api/v1/auth/register', payload: { username, password: VALID_PASSWORD } });
+
+      // 5 failed attempts
+      for (let i = 0; i < 5; i++) {
+        await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { username, password: 'WrongPassword1!@' } });
+      }
+
+      // 6th attempt should be locked out
+      const res = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { username, password: VALID_PASSWORD } });
+      expect(res.statusCode).toBe(429);
+      expect(res.json().error).toBe('ACCOUNT_LOCKED');
+      expect(res.headers['retry-after']).toBeDefined();
+    });
+  });
+
   describe('POST /api/v1/auth/refresh', () => {
     it('returns new token pair', async () => {
       const username = `refreshuser_${Date.now()}`;
@@ -150,7 +174,11 @@ describe('Auth Routes', () => {
         payload: { username, password: VALID_PASSWORD },
       });
 
-      const { refreshToken } = loginRes.json();
+      // Extract refresh token from httpOnly cookie
+      const cookies = loginRes.cookies as Array<{ name: string; value: string }>;
+      const refreshCookie = cookies.find(c => c.name === 'refreshToken');
+      expect(refreshCookie).toBeDefined();
+      const refreshToken = refreshCookie!.value;
 
       const refreshRes = await app.inject({
         method: 'POST',
@@ -161,8 +189,6 @@ describe('Auth Routes', () => {
       expect(refreshRes.statusCode).toBe(200);
       const body = refreshRes.json();
       expect(body.accessToken).toBeDefined();
-      expect(body.refreshToken).toBeDefined();
-      expect(body.refreshToken).not.toBe(refreshToken); // new token
     });
 
     it('refreshed access token can call protected endpoint', async () => {
@@ -179,7 +205,7 @@ describe('Auth Routes', () => {
         payload: { username, password: VALID_PASSWORD },
       });
 
-      const { refreshToken } = loginRes.json();
+      const refreshToken = getRefreshTokenFromCookies(loginRes);
 
       const refreshRes = await app.inject({
         method: 'POST',
@@ -215,7 +241,8 @@ describe('Auth Routes', () => {
         payload: { username, password: VALID_PASSWORD },
       });
 
-      const { refreshToken, accessToken } = loginRes.json();
+      const { accessToken } = loginRes.json();
+      const refreshToken = getRefreshTokenFromCookies(loginRes);
 
       // Get the original session absoluteExpiresAt
       const decoded = JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64url').toString());
@@ -259,7 +286,7 @@ describe('Auth Routes', () => {
         payload: { username, password: VALID_PASSWORD },
       });
 
-      const { refreshToken } = loginRes.json();
+      const refreshToken = getRefreshTokenFromCookies(loginRes);
 
       // Use token once (success)
       await app.inject({

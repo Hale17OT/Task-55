@@ -12,6 +12,9 @@ cd "$SCRIPT_DIR"
 if docker compose ps --status running 2>/dev/null | grep -q "api"; then
   echo "Docker services detected — running tests via Docker test-runner..."
   echo ""
+  # Restart API with test-friendly settings, then run test-runner
+  SEED_DATA=true RATE_LIMIT_MULTIPLIER=100 docker compose up -d api 2>&1
+  sleep 5
   docker compose --profile test up --build --abort-on-container-exit --exit-code-from test-runner test-runner 2>&1
   echo ""
   echo "=== All tests passed ==="

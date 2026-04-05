@@ -1,59 +1,36 @@
-# Web
+# StudioOps Web — Angular Frontend
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.6.
+Role-based Angular app for the StudioOps offline photo & video service platform. Provides desktop and tablet layouts for Guest, Client, Merchant, Operations, and Administrator users.
 
-## Development server
+## Roles & Routes
 
-To start a local development server, run:
+| Role | Routes | Key Features |
+|------|--------|-------------|
+| Guest | `/`, `/offerings` | View public offerings |
+| Client | `/events`, `/` | Register for events, view restricted offerings |
+| Merchant | `/offerings`, `/portfolio`, `/events` | Manage packages/add-ons, upload media, create events |
+| Operations | `/dashboard`, `/data-quality` | Analytics dashboards, data quality review, dedup |
+| Administrator | `/admin` | Roles, rules, config, sessions, whitelist, org members |
 
-```bash
-ng serve
-```
-
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+## Development
 
 ```bash
-ng generate component component-name
+cd apps/web
+npx ng serve
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+The dev server proxies `/api` to `http://localhost:3100` via `proxy.conf.json`. Requires the API to be running.
+
+## Production Build
 
 ```bash
-ng generate --help
+npx ng build --configuration=production
 ```
 
-## Building
+Output goes to `dist/web/browser/`, served by nginx in Docker.
 
-To build the project run:
+## Offline Constraints
 
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+- No external CDN/API dependencies
+- File System Access API used for export-to-folder (Chrome/Edge only)
+- All data served from local network API

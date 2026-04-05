@@ -71,6 +71,7 @@ export default async function analyticsRoutes(fastify: FastifyInstance) {
     const payload = await analyticsRepo.getDashboard(filters, orgScope);
 
     request.auditContext = { resourceType: 'analytics', action: 'analytics.export' };
+    await request.writeAudit();
 
     // Cooldown is enforced by rules-engine preHandler (export_cooldown rule)
     const dateStr = now.toISOString().split('T')[0];

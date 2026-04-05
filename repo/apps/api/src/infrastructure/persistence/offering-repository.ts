@@ -43,9 +43,13 @@ export class DrizzleOfferingRepository implements OfferingRepositoryPort {
     const addons = await this.db.select().from(offeringAddons)
       .where(eq(offeringAddons.offeringId, id));
 
+    const access = await this.db.select().from(offeringAccess)
+      .where(eq(offeringAccess.offeringId, id));
+
     return {
       ...offering,
       addons: addons.map(this.toAddonRecord),
+      access: access.map(a => ({ userId: a.userId, grantedBy: a.grantedBy })),
     };
   }
 
@@ -79,20 +83,25 @@ export class DrizzleOfferingRepository implements OfferingRepositoryPort {
         }
         break;
       case 'merchant':
-        // Merchant sees: public + own items (any visibility)
+        // Merchant sees: own items (any status) + other public active offerings
         if (userId) {
           conditions.push(
             or(
-              eq(offerings.visibility, 'public'),
               eq(offerings.merchantId, userId),
+              and(eq(offerings.visibility, 'public'), eq(offerings.status, 'active')),
             )!,
           );
         }
         break;
       case 'client':
-        // Client sees: public+active, OR restricted items they have explicit access to
+        // Client sees: public+active within their orgs, OR restricted items they have explicit access to
         if (!status) {
           conditions.push(eq(offerings.status, 'active'));
+        }
+        if (orgScope && orgScope.length > 0) {
+          conditions.push(inArray(offerings.orgId, orgScope));
+        } else if (orgScope !== undefined) {
+          conditions.push(sql`false`);
         }
         if (userId) {
           // Subquery: offering IDs the client has been granted access to
@@ -186,14 +195,14 @@ export class DrizzleOfferingRepository implements OfferingRepositoryPort {
     let granted = 0;
     for (const userId of userIds) {
       try {
-        await this.db.insert(offeringAccess).values({
+        const rows = await this.db.insert(offeringAccess).values({
           offeringId,
           userId,
           grantedBy,
-        }).onConflictDoNothing();
-        granted++;
+        }).onConflictDoNothing().returning({ id: offeringAccess.id });
+        if (rows.length > 0) granted++;
       } catch {
-        // Skip conflicts
+        // Skip errors
       }
     }
     return granted;

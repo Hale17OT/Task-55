@@ -7,27 +7,36 @@ const multiplier = parseInt(process.env.RATE_LIMIT_MULTIPLIER || '0', 10);
 const LIMIT_MULTIPLIER = multiplier > 0 ? multiplier : (process.env.NODE_ENV === 'test' ? 100 : 1);
 
 /**
- * Verified JWT identity extraction for rate-limit keying.
- * Uses Fastify's JWT verifier (cryptographic signature check).
- * Returns null on any failure — caller treats as guest.
- * Result is cached on the request to avoid repeated verification.
+ * JWT identity extraction for rate-limit keying.
+ * Checks request.user first (set by auth middleware on protected routes).
+ * Falls back to cryptographic JWT signature verification for public routes
+ * where auth middleware hasn't run yet.
+ * Revoked-but-unexpired tokens may get authenticated buckets here —
+ * this is acceptable because the route's auth preHandler will reject them.
  */
-async function getVerifiedIdentity(request: FastifyRequest): Promise<{ sub: string; role: string } | null> {
-  // If auth middleware already ran, trust its result
+function getVerifiedIdentity(request: FastifyRequest): { sub: string; role: string } | null {
+  // If auth middleware already ran, trust its result (includes session validation)
   if (request.user?.sub) return request.user as { sub: string; role: string };
 
-  // Check cache from a previous rate-limit call on this request
+  // Check cache
   if ((request as any)._rateLimitIdentity !== undefined) return (request as any)._rateLimitIdentity;
 
+  // Try cookie fallback
+  let token: string | undefined;
   const auth = request.headers.authorization;
-  if (!auth?.startsWith('Bearer ')) {
+  if (auth?.startsWith('Bearer ')) {
+    token = auth.slice(7);
+  } else if ((request as any).cookies?.accessToken) {
+    token = (request as any).cookies.accessToken;
+  }
+
+  if (!token) {
     (request as any)._rateLimitIdentity = null;
     return null;
   }
 
   try {
-    // Full cryptographic verification via Fastify JWT plugin
-    const decoded = request.server.jwt.verify<{ sub: string; role: string }>(auth.slice(7));
+    const decoded = request.server.jwt.verify<{ sub: string; role: string }>(token);
     (request as any)._rateLimitIdentity = decoded;
     return decoded;
   } catch {

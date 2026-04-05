@@ -128,6 +128,7 @@ export default async function portfolioRoutes(fastify: FastifyInstance) {
     }
 
     request.auditContext = { resourceType: 'portfolio', resourceId: item.id, action: 'portfolio.upload', afterState: item };
+    await request.writeAudit();
 
     // Auto-cleansing on upload metadata (fire-and-forget)
     (async () => {
@@ -258,6 +259,7 @@ export default async function portfolioRoutes(fastify: FastifyInstance) {
 
     await portfolioRepo.softDelete(id);
     request.auditContext = { resourceType: 'portfolio', resourceId: id, beforeState: item };
+    await request.writeAudit();
     return reply.status(204).send();
   });
 
@@ -290,6 +292,7 @@ export default async function portfolioRoutes(fastify: FastifyInstance) {
 
     const tags = await portfolioRepo.getItemTags(id);
     request.auditContext = { resourceType: 'portfolio', resourceId: id, action: 'portfolio.edit' };
+    await request.writeAudit();
     return reply.status(200).send({ ...item, tags });
   });
 
@@ -312,7 +315,7 @@ export default async function portfolioRoutes(fastify: FastifyInstance) {
 
   // POST /portfolio/categories
   fastify.post('/categories', {
-    preHandler: [fastify.authenticate, fastify.authorize('portfolio', 'update')],
+    preHandler: [fastify.authenticate, fastify.authorize('portfolio', 'update'), fastify.enforceQuota('hourly_portfolio_edit_limit')],
   }, async (request, reply) => {
     const { name, sortOrder } = request.body as { name: string; sortOrder?: number };
     if (!name || name.trim().length === 0) {
@@ -321,27 +324,32 @@ export default async function portfolioRoutes(fastify: FastifyInstance) {
 
     const category = await portfolioRepo.createCategory(request.user.sub, name.trim(), sortOrder ?? 0);
     request.auditContext = { resourceType: 'portfolio_category', resourceId: category.id, afterState: category };
+    await request.writeAudit();
     return reply.status(201).send(category);
   });
 
   // PUT /portfolio/categories/:categoryId
   fastify.put('/categories/:categoryId', {
-    preHandler: [fastify.authenticate, fastify.authorize('portfolio', 'update')],
+    preHandler: [fastify.authenticate, fastify.authorize('portfolio', 'update'), fastify.enforceQuota('hourly_portfolio_edit_limit')],
   }, async (request, reply) => {
     const { categoryId } = request.params as { categoryId: string };
     const { name, sortOrder } = request.body as { name?: string; sortOrder?: number };
 
     const updated = await portfolioRepo.updateCategory(categoryId, request.user.sub, { name, sortOrder });
     if (!updated) return reply.status(404).send({ error: 'NOT_FOUND', message: 'Category not found' });
+    request.auditContext = { resourceType: 'portfolio_category', resourceId: categoryId, action: 'category.update', afterState: updated };
+    await request.writeAudit();
     return reply.status(200).send(updated);
   });
 
   // DELETE /portfolio/categories/:categoryId
   fastify.delete('/categories/:categoryId', {
-    preHandler: [fastify.authenticate, fastify.authorize('portfolio', 'delete')],
+    preHandler: [fastify.authenticate, fastify.authorize('portfolio', 'delete'), fastify.enforceQuota('hourly_portfolio_edit_limit')],
   }, async (request, reply) => {
     const { categoryId } = request.params as { categoryId: string };
     await portfolioRepo.deleteCategory(categoryId, request.user.sub);
+    request.auditContext = { resourceType: 'portfolio_category', resourceId: categoryId, action: 'category.delete' };
+    await request.writeAudit();
     return reply.status(204).send();
   });
 
@@ -364,8 +372,18 @@ export default async function portfolioRoutes(fastify: FastifyInstance) {
       }
     }
 
+    // Validate category belongs to the same merchant (if categoryId is provided)
+    if (categoryId) {
+      const categories = await portfolioRepo.listCategories(request.user.sub);
+      const ownsCat = categories.some((c: any) => c.id === categoryId);
+      if (!ownsCat && request.user.role !== 'administrator') {
+        return reply.status(403).send({ error: 'FORBIDDEN', message: 'Category does not belong to you' });
+      }
+    }
+
     await portfolioRepo.updateItemCategory(id, categoryId);
     request.auditContext = { resourceType: 'portfolio', resourceId: id, action: 'portfolio.edit' };
+    await request.writeAudit();
     return reply.status(200).send({ id, categoryId });
   });
 }

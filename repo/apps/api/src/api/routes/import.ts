@@ -4,6 +4,7 @@ import { DrizzleOfferingRepository } from '../../infrastructure/persistence/offe
 import { DrizzleCleansingRepository } from '../../infrastructure/persistence/cleansing-repository';
 import { autoCleanseRecord, type CleansingTarget } from '../../core/use-cases/auto-cleanse';
 import { normalizeCurrency, normalizeDuration, cmToInches, pixelsToInches } from '../../core/domain/normalizers';
+import { DrizzlePortfolioRepository } from '../../infrastructure/persistence/portfolio-repository';
 import type { Role } from '@studioops/shared';
 
 const importOfferingSchema = z.object({
@@ -25,6 +26,7 @@ const importBatchSchema = z.object({
 export default async function importRoutes(fastify: FastifyInstance) {
   const offeringRepo = new DrizzleOfferingRepository(fastify.db);
   const cleansingRepo = new DrizzleCleansingRepository(fastify.db);
+  const portfolioRepo = new DrizzlePortfolioRepository(fastify.db);
 
   /**
    * POST /import/offerings — Bulk import offerings with full cleansing pipeline.
@@ -126,6 +128,7 @@ export default async function importRoutes(fastify: FastifyInstance) {
       resourceType: 'import',
       afterState: { count: results.length, orgId },
     };
+    await request.writeAudit();
 
     return reply.status(201).send({
       imported: results.length,
@@ -141,10 +144,12 @@ export default async function importRoutes(fastify: FastifyInstance) {
   fastify.post('/cleanse', {
     preHandler: [fastify.authenticate, fastify.authorize('data_quality', 'review')],
   }, async (request, reply) => {
-    const body = request.body as { orgId: string };
-    if (!body.orgId) {
-      return reply.status(400).send({ error: 'VALIDATION_ERROR', message: 'orgId is required' });
+    const cleanseSchema = z.object({ orgId: z.string().uuid('orgId must be a valid UUID') });
+    const parseResult = cleanseSchema.safeParse(request.body);
+    if (!parseResult.success) {
+      return reply.status(400).send({ error: 'VALIDATION_ERROR', message: 'Validation failed', details: parseResult.error.issues.map(i => i.message) });
     }
+    const body = parseResult.data;
 
     // Org scope check
     if (request.user.role !== 'administrator') {
@@ -188,11 +193,35 @@ export default async function importRoutes(fastify: FastifyInstance) {
       }
     }
 
+    // Also cleanse portfolio items in the org (dimensions normalization + flagging)
+    const portfolioItems = await portfolioRepo.listItems({ orgScope: [body.orgId], page: 1, limit: 500 });
+    for (const item of portfolioItems.data) {
+      // Normalize dimensions to inches if pixel dimensions exist but inches are missing
+      if (item.width && item.height && !item.widthInches) {
+        const widthInches = pixelsToInches(item.width);
+        const heightInches = pixelsToInches(item.height);
+        await portfolioRepo.updateProcessingResult(item.id, {
+          status: item.status || 'ready',
+          widthInches: widthInches.toFixed(2),
+          heightInches: heightInches.toFixed(2),
+        });
+        // Flag unusually small images
+        if (widthInches < 2 || heightInches < 2) {
+          await cleansingRepo.createFlag({
+            recordType: 'portfolio_item', recordId: item.id, field: 'dimensions', issue: 'OUTLIER',
+            detail: { widthInches: widthInches.toFixed(2), heightInches: heightInches.toFixed(2), note: 'Below 2 inches at 300 DPI' },
+          });
+          totalFlags++;
+        }
+      }
+    }
+
     request.auditContext = {
       resourceType: 'import',
       action: 'internal_feed_cleanse',
       afterState: { orgId: body.orgId, cleansed: targets.length, flags: totalFlags, duplicates: totalDuplicates },
     };
+    await request.writeAudit();
 
     return reply.status(200).send({
       cleansed: targets.length,

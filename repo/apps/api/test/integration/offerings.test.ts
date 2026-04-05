@@ -270,4 +270,73 @@ describe('Offerings Routes', () => {
       expect(res.statusCode).toBe(404);
     });
   });
+
+  describe('Restricted offering access grants', () => {
+    let restrictedId: string;
+    let clientUserId: string;
+
+    beforeAll(async () => {
+      // Create restricted offering
+      const res = await app.inject({
+        method: 'POST', url: '/api/v1/offerings',
+        headers: { authorization: `Bearer ${merchantToken}` },
+        payload: { title: 'Restricted Package', basePriceCents: 100000, durationMinutes: 60, visibility: 'restricted', orgId },
+      });
+      restrictedId = res.json().id;
+
+      // Activate it
+      await app.inject({
+        method: 'PATCH', url: `/api/v1/offerings/${restrictedId}/status`,
+        headers: { authorization: `Bearer ${merchantToken}` },
+        payload: { status: 'active' },
+      });
+
+      // Get client user ID
+      const cUser = await app.db.execute(sql`SELECT id FROM users WHERE role = 'client' LIMIT 1`);
+      clientUserId = (cUser[0] as any).id;
+    });
+
+    it('client cannot see restricted offering before grant', async () => {
+      const res = await app.inject({
+        method: 'GET', url: `/api/v1/offerings/${restrictedId}`,
+        headers: { authorization: `Bearer ${clientToken}` },
+      });
+      expect(res.statusCode).toBe(404);
+    });
+
+    it('merchant can grant access to client', async () => {
+      const res = await app.inject({
+        method: 'POST', url: `/api/v1/offerings/${restrictedId}/access`,
+        headers: { authorization: `Bearer ${merchantToken}` },
+        payload: { userIds: [clientUserId] },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().granted).toBe(1);
+    });
+
+    it('client can see restricted offering after grant', async () => {
+      const res = await app.inject({
+        method: 'GET', url: `/api/v1/offerings/${restrictedId}`,
+        headers: { authorization: `Bearer ${clientToken}` },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().title).toBe('Restricted Package');
+    });
+
+    it('merchant can revoke access', async () => {
+      const res = await app.inject({
+        method: 'DELETE', url: `/api/v1/offerings/${restrictedId}/access/${clientUserId}`,
+        headers: { authorization: `Bearer ${merchantToken}` },
+      });
+      expect(res.statusCode).toBe(204);
+    });
+
+    it('client cannot see restricted offering after revoke', async () => {
+      const res = await app.inject({
+        method: 'GET', url: `/api/v1/offerings/${restrictedId}`,
+        headers: { authorization: `Bearer ${clientToken}` },
+      });
+      expect(res.statusCode).toBe(404);
+    });
+  });
 });

@@ -1,4 +1,4 @@
-import { FastifyInstance } from 'fastify';
+import { FastifyInstance, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
 import { auditLogs } from '@studioops/db/schema';
 
@@ -11,11 +11,16 @@ declare module 'fastify' {
       beforeState?: unknown;
       afterState?: unknown;
     };
+    /** True if audit was already written by the route handler via writeAudit() */
+    _auditWritten?: boolean;
+    /** Write audit entry synchronously before sending response. Throws on failure. */
+    writeAudit: () => Promise<void>;
   }
 }
 
 const MAX_RETRY = 3;
 const RETRY_DELAY_MS = 100;
+const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
 async function insertAuditWithRetry(
@@ -33,42 +38,66 @@ async function insertAuditWithRetry(
         continue;
       }
       log.fatal({ err, auditEntry: entry, retriesExhausted: true },
-        'AUDIT_FAILURE: Failed to persist audit log after retries. Entry logged to stderr for reconciliation.');
+        'AUDIT_FAILURE: Failed to persist audit log after retries.');
       return false;
     }
   }
   return false;
 }
 
+function buildAuditEntry(request: FastifyRequest) {
+  const auditCtx = request.auditContext;
+  return {
+    actorId: request.user?.sub || null,
+    action: auditCtx?.action || `${request.method} ${request.routeOptions?.url || request.url}`,
+    resourceType: auditCtx?.resourceType || inferResourceType(request.url),
+    resourceId: auditCtx?.resourceId || null,
+    beforeState: auditCtx?.beforeState || null,
+    afterState: auditCtx?.afterState || null,
+    ipAddress: request.ip,
+    userAgent: request.headers['user-agent'] || null,
+  };
+}
+
 async function auditLogPlugin(fastify: FastifyInstance) {
-  // Audit all protected-resource access via onResponse hook (after response is sent).
-  // Uses retry with exponential backoff for transient DB failures.
-  // On exhaustion, the full audit entry is emitted at fatal level to stderr
-  // for external reconciliation/alerting via log aggregation.
-  //
-  // Durability rationale: the audit DB is the same PostgreSQL instance as the
-  // application DB. If the app successfully writes business data, the audit insert
-  // uses the same connection pool and will succeed. The only failure scenario is a
-  // transient connection issue between hooks, which the retry handles. If all retries
-  // fail, the structured fatal log provides a reconciliation path.
+  // Decorate every request with writeAudit() for explicit use in routes.
+  fastify.addHook('onRequest', async (request) => {
+    request._auditWritten = false;
+    request.writeAudit = async () => {
+      const entry = buildAuditEntry(request);
+      const ok = await insertAuditWithRetry(fastify.db, entry, request.log);
+      if (!ok) {
+        throw new Error('AUDIT_PERSISTENCE_FAILURE');
+      }
+      request._auditWritten = true;
+    };
+  });
+
+  // Audit for read operations (GET/HEAD/OPTIONS) via onResponse (best-effort with retry).
+  // Write operations MUST use writeAudit() in route handlers — no fallback.
   fastify.addHook('onResponse', async (request, reply) => {
-    if (!request.url.startsWith('/api/v1/') || request.url === '/api/v1/health') {
-      return;
+    if (request._auditWritten) return;
+    if (!request.url.startsWith('/api/v1/') || request.url === '/api/v1/health') return;
+
+    // Successful write operations: MUST have called writeAudit() — invariant violation otherwise.
+    if (WRITE_METHODS.has(request.method) && reply.statusCode < 400) {
+      const msg = `AUDIT_VIOLATION: ${request.method} ${request.url} (${reply.statusCode}) completed without writeAudit(). Add auditContext + writeAudit() to this route.`;
+      request.log.fatal({ method: request.method, url: request.url, statusCode: reply.statusCode }, msg);
+      throw new Error(msg);
     }
 
-    const auditCtx = request.auditContext;
-    const entry = {
-      actorId: request.user?.sub || null,
-      action: auditCtx?.action || `${request.method} ${request.routeOptions?.url || request.url}`,
-      resourceType: auditCtx?.resourceType || inferResourceType(request.url),
-      resourceId: auditCtx?.resourceId || null,
-      beforeState: auditCtx?.beforeState || null,
-      afterState: auditCtx?.afterState || null,
-      ipAddress: request.ip,
-      userAgent: request.headers['user-agent'] || null,
-    };
-
-    await insertAuditWithRetry(fastify.db, entry, request.log);
+    // All remaining protected requests (reads, failed writes): guaranteed audit with retry.
+    // If insert fails after retries, emit fatal with full entry for reconciliation.
+    const entry = buildAuditEntry(request);
+    const ok = await insertAuditWithRetry(fastify.db, entry, request.log);
+    if (!ok) {
+      request.log.fatal({
+        auditEntry: entry,
+        method: request.method,
+        url: request.url,
+        statusCode: reply.statusCode,
+      }, 'AUDIT_PERSISTENCE_FAILURE: Protected action completed without durable audit record. Entry logged for mandatory reconciliation.');
+    }
   });
 }
 

@@ -35,6 +35,10 @@ run('[1/4] API Unit Tests', 'npx vitest run', resolve(root, 'apps/api'));
 // 2. Integration tests (requires DATABASE_URL)
 if (process.env.DATABASE_URL) {
   run('[2/4] API Integration Tests', 'npx vitest run --config vitest.integration.config.ts', resolve(root, 'apps/api'));
+} else if (strict) {
+  console.log('\n--- [2/4] API Integration Tests ---');
+  console.log('✗ DATABASE_URL not set. CI mode requires integration tests.');
+  skipped.push('integration');
 } else {
   console.log('\n--- [2/4] API Integration Tests ---');
   console.log('⚠ Skipped (DATABASE_URL not set). Set DATABASE_URL to run integration tests.');
@@ -59,7 +63,10 @@ try {
       else reject(new Error(`API returned ${res.statusCode}`));
     }).on('error', reject);
   });
-  run('[4/4] Playwright E2E Tests', `npx playwright test --config e2e/playwright.config.ts --project=api`, root);
+  // Run API E2E tests; also run browser tests if APP_URL is available
+  const appUrl = process.env.APP_URL;
+  const projects = appUrl ? '' : '--project=api';
+  run('[4/4] Playwright E2E Tests', `npx playwright test --config e2e/playwright.config.ts ${projects}`, root);
 } catch {
   console.log('\n--- [4/4] Playwright E2E Tests ---');
   console.log(`⚠ Skipped (API not reachable at ${apiUrl}). Start API to run E2E tests.`);
