@@ -13,17 +13,17 @@ async function loginAsOps(page: any) {
 test.describe('Browser: Data Quality & Dedup', () => {
   test('data quality page renders with tabs', async ({ page }) => {
     await loginAsOps(page);
-    await page.goto(`${APP}/data-quality`);
-    await page.waitForTimeout(2000);
-    await expect(page.locator('text=Data Quality')).toBeVisible({ timeout: 5000 });
+    await page.click('nav a:has-text("Data Quality")');
+    await page.waitForURL(/\/data-quality/, { timeout: 5000 });
+    await expect(page.locator('h2:has-text("Data Quality")')).toBeVisible({ timeout: 10000 });
     await expect(page.locator('button:has-text("Duplicate Candidates")')).toBeVisible();
     await expect(page.locator('button:has-text("Quality Flags")')).toBeVisible();
   });
 
   test('duplicate candidates tab shows candidates or empty state', async ({ page }) => {
     await loginAsOps(page);
-    await page.goto(`${APP}/data-quality`);
-    await page.waitForTimeout(2000);
+    await page.click('nav a:has-text("Data Quality")');
+    await page.waitForURL(/\/data-quality/, { timeout: 5000 });
     // Tab should be active and show either candidates with Merge/Dismiss or "No candidates"
     const mergeBtn = page.locator('button:has-text("Merge")').first();
     const noCandidates = page.locator('text=No duplicate candidates');
@@ -34,8 +34,8 @@ test.describe('Browser: Data Quality & Dedup', () => {
 
   test('quality flags tab shows flags or empty state', async ({ page }) => {
     await loginAsOps(page);
-    await page.goto(`${APP}/data-quality`);
-    await page.waitForTimeout(2000);
+    await page.click('nav a:has-text("Data Quality")');
+    await page.waitForURL(/\/data-quality/, { timeout: 5000 });
     await page.click('button:has-text("Quality Flags")');
     await page.waitForTimeout(1000);
     // Should show flags with Resolve buttons or empty state

@@ -58,7 +58,7 @@ export class DrizzleCleansingRepository {
       if (params.orgScope.length === 0) {
         conditions.push(sql`false`);
       } else {
-        const scopedIds = sql`(SELECT id FROM offerings WHERE org_id = ANY(${params.orgScope}) UNION ALL SELECT id FROM portfolio_items WHERE original_org_id = ANY(${params.orgScope}))`;
+        const scopedIds = sql`(SELECT id FROM offerings WHERE org_id IN (${sql.join(params.orgScope.map(id => sql`${id}`), sql`,`)}) UNION ALL SELECT id FROM portfolio_items WHERE original_org_id IN (${sql.join(params.orgScope.map(id => sql`${id}`), sql`,`)}))`;
         conditions.push(sql`(${duplicateCandidates.recordAId} IN ${scopedIds} AND ${duplicateCandidates.recordBId} IN ${scopedIds})`);
       }
     }
@@ -134,8 +134,8 @@ export class DrizzleCleansingRepository {
       if (params.orgScope.length === 0) {
         conditions.push(sql`false`);
       } else {
-        const offeringIds = sql`(SELECT id FROM offerings WHERE org_id = ANY(${params.orgScope}))`;
-        const portfolioIds = sql`(SELECT id FROM portfolio_items WHERE original_org_id = ANY(${params.orgScope}))`;
+        const offeringIds = sql`(SELECT id FROM offerings WHERE org_id IN (${sql.join(params.orgScope.map(id => sql`${id}`), sql`,`)}))`;
+        const portfolioIds = sql`(SELECT id FROM portfolio_items WHERE original_org_id IN (${sql.join(params.orgScope.map(id => sql`${id}`), sql`,`)}))`;
         conditions.push(sql`(${dataQualityFlags.recordId} IN ${offeringIds} OR ${dataQualityFlags.recordId} IN ${portfolioIds})`);
       }
     }

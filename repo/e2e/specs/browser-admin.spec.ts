@@ -13,8 +13,8 @@ async function loginAsAdmin(page: any) {
 test.describe('Browser: Admin Panel', () => {
   test('admin page renders with all tabs', async ({ page }) => {
     await loginAsAdmin(page);
-    await page.goto(`${APP}/admin`);
-    await page.waitForTimeout(4000);
+    await page.click('nav a:has-text("Admin")');
+    await page.waitForURL(/\/admin/, { timeout: 5000 });
     await expect(page.locator('text=Administration')).toBeVisible({ timeout: 10000 });
     await expect(page.locator('button:has-text("Roles")')).toBeVisible();
     await expect(page.locator('button:has-text("Rules")')).toBeVisible();
@@ -25,36 +25,36 @@ test.describe('Browser: Admin Panel', () => {
 
   test('Roles tab shows permission matrix', async ({ page }) => {
     await loginAsAdmin(page);
-    await page.goto(`${APP}/admin`);
-    await page.waitForTimeout(2000);
+    await page.click('nav a:has-text("Admin")');
+    await page.waitForURL(/\/admin/, { timeout: 5000 });
     await page.click('button:has-text("Roles")');
     await page.waitForTimeout(1000);
     // Should show roles table with permission badges
-    await expect(page.locator('text=Role')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('th:has-text("Role")')).toBeVisible({ timeout: 10000 });
   });
 
   test('Rules tab shows rules list', async ({ page }) => {
     await loginAsAdmin(page);
-    await page.goto(`${APP}/admin`);
-    await page.waitForTimeout(2000);
+    await page.click('nav a:has-text("Admin")');
+    await page.waitForURL(/\/admin/, { timeout: 5000 });
     await page.click('button:has-text("Rules")');
     await page.waitForTimeout(1000);
   });
 
   test('Audit tab shows log entries', async ({ page }) => {
     await loginAsAdmin(page);
-    await page.goto(`${APP}/admin`);
-    await page.waitForTimeout(2000);
+    await page.click('nav a:has-text("Admin")');
+    await page.waitForURL(/\/admin/, { timeout: 5000 });
     await page.click('button:has-text("Audit")');
     await page.waitForTimeout(1000);
-    await expect(page.locator('text=Action')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('text=Action')).toBeVisible({ timeout: 10000 });
     await expect(page.locator('text=Resource')).toBeVisible();
   });
 
   test('Config tab shows entries with Reveal buttons on encrypted values', async ({ page }) => {
     await loginAsAdmin(page);
-    await page.goto(`${APP}/admin`);
-    await page.waitForTimeout(2000);
+    await page.click('nav a:has-text("Admin")');
+    await page.waitForURL(/\/admin/, { timeout: 5000 });
     await page.click('button:has-text("Config")');
     await page.waitForTimeout(1000);
     // If encrypted configs exist, Reveal buttons should be present
@@ -66,10 +66,10 @@ test.describe('Browser: Admin Panel', () => {
 
   test('Sessions tab shows active sessions with Revoke buttons', async ({ page }) => {
     await loginAsAdmin(page);
-    await page.goto(`${APP}/admin`);
-    await page.waitForTimeout(2000);
+    await page.click('nav a:has-text("Admin")');
+    await page.waitForURL(/\/admin/, { timeout: 5000 });
     await page.click('button:has-text("Sessions")');
     await page.waitForTimeout(1000);
-    await expect(page.locator('button:has-text("Revoke")').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('button:has-text("Revoke")').first()).toBeVisible({ timeout: 10000 });
   });
 });

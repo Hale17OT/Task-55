@@ -26,6 +26,7 @@ export interface AddonRecord {
 
 export interface OfferingWithAddons extends OfferingRecord {
   addons: AddonRecord[];
+  access?: Array<{ userId: string; grantedBy: string | null }>;
 }
 
 export interface ListOfferingsParams {

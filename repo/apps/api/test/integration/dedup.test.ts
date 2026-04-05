@@ -53,11 +53,9 @@ describe('Dedup & Data Quality Routes', () => {
     });
     offeringBId = resB.json().id;
 
-    // Manually create a dedup candidate (in production, the dedup pass would do this)
-    await app.db.execute(sql`INSERT INTO duplicate_candidates (record_type, record_a_id, record_b_id, similarity_score, feature_scores, status) VALUES ('offering', ${offeringAId}, ${offeringBId}, '0.9500', '{"title":0.95,"price":1.0,"duration":1.0,"tags":1.0}'::jsonb, 'pending')`);
-
-    const candidates = await app.db.execute(sql`SELECT id FROM duplicate_candidates WHERE record_a_id = ${offeringAId} LIMIT 1`);
-    candidateId = (candidates[0] as any).id;
+    // Manually create a dedup candidate with a known ID
+    candidateId = crypto.randomUUID();
+    await app.db.execute(sql`INSERT INTO duplicate_candidates (id, record_type, record_a_id, record_b_id, similarity_score, feature_scores, status) VALUES (${candidateId}, 'offering', ${offeringAId}, ${offeringBId}, '0.9500', '{"title":0.95,"price":1.0,"duration":1.0,"tags":1.0}'::jsonb, 'pending')`);
   });
 
   afterAll(async () => {

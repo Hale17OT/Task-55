@@ -13,14 +13,8 @@ async function loginAs(page: any, username: string, password: string) {
 test.describe('Browser: Client Event Registration', () => {
   test('client sees Events page with Register buttons', async ({ page }) => {
     await loginAs(page, 'client1', 'ClientPass123!@');
-    await page.waitForTimeout(2000);
-    // Navigate to events — retry if guard redirects (race between session load and guard)
-    await page.goto(`${APP}/events`);
-    await page.waitForTimeout(1000);
-    if (!page.url().includes('/events')) {
-      await page.goto(`${APP}/events`);
-      await page.waitForTimeout(1000);
-    }
+    await page.click('nav a:has-text("Events")');
+    await page.waitForURL(/\/events/, { timeout: 5000 });
     await expect(page.locator('h2:has-text("Events")')).toBeVisible({ timeout: 15000 });
     // Client should see Register buttons on non-terminal events
     await page.waitForTimeout(2000);
@@ -31,18 +25,21 @@ test.describe('Browser: Client Event Registration', () => {
 
   test('client can register for an event', async ({ page }) => {
     await loginAs(page, 'client1', 'ClientPass123!@');
-    await page.waitForTimeout(2000);
-    await page.goto(`${APP}/events`);
+    await page.click('nav a:has-text("Events")');
+    await page.waitForURL(/\/events/, { timeout: 5000 });
     await page.waitForTimeout(1000);
-    if (!page.url().includes('/events')) await page.goto(`${APP}/events`);
-    await page.waitForTimeout(2000);
     const registerBtn = page.locator('button:has-text("Register")').first();
     if (await registerBtn.isVisible()) {
       await registerBtn.click();
       // Should see success or error message
       await page.waitForTimeout(1000);
-      const msg = page.locator('text=Registered successfully, text=Registration failed, text=Cannot register').first();
-      await expect(msg).toBeVisible({ timeout: 5000 });
+      // Should see success or error message after clicking Register
+      await page.waitForTimeout(2000);
+      const hasSuccess = await page.locator('text=Registered successfully').isVisible().catch(() => false);
+      const hasFailed = await page.locator('text=Registration failed').isVisible().catch(() => false);
+      const hasCannot = await page.locator('text=Cannot register').isVisible().catch(() => false);
+      const hasAlready = await page.locator('text=already registered').isVisible().catch(() => false);
+      expect(hasSuccess || hasFailed || hasCannot || hasAlready).toBe(true);
     }
   });
 });

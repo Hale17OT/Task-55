@@ -10,6 +10,7 @@ describe('Offerings Routes', () => {
   let merchantToken: string;
   let merchantUserId: string;
   let clientToken: string;
+  let clientUserId: string;
   let orgId: string;
 
   beforeAll(async () => {
@@ -32,9 +33,12 @@ describe('Offerings Routes', () => {
     const mLogin = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { username: mName, password: VALID_PASSWORD } });
     merchantToken = mLogin.json().accessToken;
 
-    // Create and login client
+    // Create and login client (with org membership for org-scoped access)
     const cName = `c_offer_${Date.now()}`;
     await app.inject({ method: 'POST', url: '/api/v1/auth/register', payload: { username: cName, password: VALID_PASSWORD } });
+    const cUser = await app.db.execute(sql`SELECT id FROM users WHERE username = ${cName}`);
+    clientUserId = (cUser[0] as any).id;
+    await app.db.execute(sql`INSERT INTO organization_members (org_id, user_id, role_in_org) VALUES (${orgId}, ${clientUserId}, 'member') ON CONFLICT DO NOTHING`);
     const cLogin = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { username: cName, password: VALID_PASSWORD } });
     clientToken = cLogin.json().accessToken;
   });
@@ -273,7 +277,6 @@ describe('Offerings Routes', () => {
 
   describe('Restricted offering access grants', () => {
     let restrictedId: string;
-    let clientUserId: string;
 
     beforeAll(async () => {
       // Create restricted offering
@@ -290,10 +293,6 @@ describe('Offerings Routes', () => {
         headers: { authorization: `Bearer ${merchantToken}` },
         payload: { status: 'active' },
       });
-
-      // Get client user ID
-      const cUser = await app.db.execute(sql`SELECT id FROM users WHERE role = 'client' LIMIT 1`);
-      clientUserId = (cUser[0] as any).id;
     });
 
     it('client cannot see restricted offering before grant', async () => {

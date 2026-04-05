@@ -14,8 +14,8 @@ async function loginAsMerchant(page: any) {
 test.describe('Browser: Portfolio Management', () => {
   test('portfolio page renders with upload button and category selector', async ({ page }) => {
     await loginAsMerchant(page);
-    await page.goto(`${APP}/portfolio`);
-    await page.waitForTimeout(2000);
+    await page.click('nav a:has-text("Portfolio")');
+    await page.waitForURL(/\/portfolio/, { timeout: 5000 });
     await expect(page.locator('h2:has-text("Portfolio")')).toBeVisible({ timeout: 10000 });
     await expect(page.locator('text=Upload')).toBeVisible();
     await expect(page.locator('select').first()).toBeVisible();
@@ -23,16 +23,16 @@ test.describe('Browser: Portfolio Management', () => {
 
   test('categories section renders with Add button', async ({ page }) => {
     await loginAsMerchant(page);
-    await page.goto(`${APP}/portfolio`);
-    await page.waitForTimeout(2000);
+    await page.click('nav a:has-text("Portfolio")');
+    await page.waitForURL(/\/portfolio/, { timeout: 5000 });
     await expect(page.locator('text=Categories')).toBeVisible({ timeout: 10000 });
     await expect(page.locator('button:has-text("Add")')).toBeVisible();
   });
 
   test('can create a new category', async ({ page }) => {
     await loginAsMerchant(page);
-    await page.goto(`${APP}/portfolio`);
-    await page.waitForTimeout(2000);
+    await page.click('nav a:has-text("Portfolio")');
+    await page.waitForURL(/\/portfolio/, { timeout: 5000 });
     const input = page.locator('input[placeholder="New category name"]');
     await expect(input).toBeVisible({ timeout: 5000 });
     await input.fill(`BrowserCat ${Date.now()}`);
@@ -42,7 +42,9 @@ test.describe('Browser: Portfolio Management', () => {
 
   test('portfolio items show tag edit button when items exist', async ({ page }) => {
     await loginAsMerchant(page);
-    await page.goto(`${APP}/portfolio`);
+    await page.click('nav a:has-text("Portfolio")');
+    await page.waitForURL(/\/portfolio/, { timeout: 5000 });
+    // Wait for content to load
     await page.waitForTimeout(2000);
     // If no items, the empty state message should be visible
     const emptyState = page.locator('text=No portfolio items');
@@ -55,7 +57,8 @@ test.describe('Browser: Portfolio Management', () => {
 
   test('tag edit dialog opens and has input', async ({ page }) => {
     await loginAsMerchant(page);
-    await page.goto(`${APP}/portfolio`);
+    await page.click('nav a:has-text("Portfolio")');
+    await page.waitForURL(/\/portfolio/, { timeout: 5000 });
     await page.waitForTimeout(2000);
     const tagBtn = page.locator('button:has-text("+ tags")').first();
     const hasItems = await tagBtn.isVisible().catch(() => false);
@@ -72,7 +75,8 @@ test.describe('Browser: Portfolio Management', () => {
 
   test('delete button exists on portfolio items when items present', async ({ page }) => {
     await loginAsMerchant(page);
-    await page.goto(`${APP}/portfolio`);
+    await page.click('nav a:has-text("Portfolio")');
+    await page.waitForURL(/\/portfolio/, { timeout: 5000 });
     await page.waitForTimeout(2000);
     const deleteBtn = page.locator('button:has-text("Delete")').first();
     const emptyState = page.locator('text=No portfolio items');
