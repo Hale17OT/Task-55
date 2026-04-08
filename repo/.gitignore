@@ -9,6 +9,6 @@ test-results/
 playwright-report/
 apps/web/.angular/
 apps/web/dist/
-.tmp/
 .claude/
 .env.example
+.env.test

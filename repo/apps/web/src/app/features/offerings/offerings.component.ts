@@ -26,9 +26,9 @@ interface Offering {
   standalone: true,
   imports: [DatePipe, HlmButtonDirective, HlmBadgeDirective, HlmCardDirective, HlmSkeletonDirective, OfferingFormComponent],
   template: `
-    <div class="space-y-6">
+    <div class="space-y-[var(--section-gap)]">
       <div class="flex items-center justify-between">
-        <h2 class="text-2xl font-semibold tracking-tight">Service Offerings</h2>
+        <h2 class="text-2xl font-semibold tracking-tight text-[hsl(var(--heading-primary))]">Service Offerings</h2>
         @if (canCreate()) {
           <button hlmBtn (click)="openCreate()">+ New Offering</button>
         }
@@ -41,16 +41,16 @@ interface Offering {
           }
         </div>
       } @else if (offerings().length === 0) {
-        <div class="rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-8 text-center">
+        <div class="rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-8 text-center shadow-[var(--card-shadow)]">
           <p class="text-[hsl(var(--muted-foreground))]">No offerings found</p>
         </div>
       } @else {
         <div class="space-y-4">
           @for (offering of offerings(); track offering.id) {
-            <div class="rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-6">
+            <div class="rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-6 shadow-[var(--card-shadow)] transition-shadow hover:shadow-[var(--card-shadow-lg)]">
               <div class="flex items-start justify-between">
                 <div>
-                  <h3 class="text-lg font-medium">{{ offering.title }}</h3>
+                  <h3 class="text-lg font-medium text-[hsl(var(--heading-secondary))]">{{ offering.title }}</h3>
                   <p class="mt-1 text-sm text-[hsl(var(--muted-foreground))]">{{ offering.description }}</p>
                 </div>
                 <div class="flex items-center gap-2">

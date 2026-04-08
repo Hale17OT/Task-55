@@ -3,10 +3,15 @@ set -e
 
 echo "Starting StudioOps API..."
 
-# Push database schema using drizzle-kit
-echo "Pushing database schema..."
+# Database schema management — gated by environment
 cd /app/packages/db
-npx drizzle-kit push --force 2>&1 || echo "Schema push completed (may have warnings)"
+if [ "${NODE_ENV}" = "production" ]; then
+  echo "Running versioned database migrations..."
+  npx drizzle-kit migrate 2>&1
+else
+  echo "Pushing database schema (development mode)..."
+  npx drizzle-kit push 2>&1 || echo "Schema push completed (may have warnings)"
+fi
 
 # Apply audit immutability triggers (always — idempotent)
 echo "Applying audit triggers..."

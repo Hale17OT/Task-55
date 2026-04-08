@@ -204,7 +204,7 @@ export default async function eventRoutes(fastify: FastifyInstance) {
     const { eventId } = request.params as { eventId: string };
 
     const event = await authorizeEventAccess(request, reply, eventId);
-    if (!event) return;
+    if (!event) return reply;
 
     if (isTerminalEventStatus(event.status)) {
       return reply.status(409).send({ error: 'CONFLICT', message: `Cannot register for a ${event.status} event` });
@@ -263,7 +263,7 @@ export default async function eventRoutes(fastify: FastifyInstance) {
 
     // Enforce event-level authorization before listing registrations
     const event = await authorizeEventAccess(request, reply, eventId);
-    if (!event) return;
+    if (!event) return reply;
 
     const query = request.query as { page?: string; limit?: string };
     const page = Math.max(1, parseInt(query.page || '1', 10));
@@ -294,7 +294,7 @@ export default async function eventRoutes(fastify: FastifyInstance) {
 
     // Resolve parent event and enforce authorization
     const event = await authorizeEventAccess(request, reply, existing.eventId);
-    if (!event) return;
+    if (!event) return reply;
 
     const transition = validateRegistrationTransition(existing.status, parseResult.data.status);
     if (!transition.valid) {

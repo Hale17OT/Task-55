@@ -11,9 +11,9 @@ import { NotificationService } from '../../core/services/notification.service';
   standalone: true,
   imports: [DatePipe, FormsModule],
   template: `
-    <div class="space-y-6">
+    <div class="space-y-[var(--section-gap)]">
       <div class="flex items-center justify-between">
-        <h2 class="text-2xl font-semibold tracking-tight">Events</h2>
+        <h2 class="text-2xl font-semibold tracking-tight text-[hsl(var(--heading-primary))]">Events</h2>
         @if (canManage()) {
           <button (click)="showCreateForm.set(true)" class="rounded-md bg-[hsl(var(--primary))] px-4 py-2 text-sm font-medium text-[hsl(var(--primary-foreground))] hover:opacity-90">+ New Event</button>
         }
@@ -21,8 +21,8 @@ import { NotificationService } from '../../core/services/notification.service';
 
       <!-- Create/Edit Form -->
       @if (showCreateForm() || editingEvent()) {
-        <div class="rounded-lg border bg-[hsl(var(--card))] p-4 space-y-3">
-          <h3 class="text-sm font-semibold">{{ editingEvent() ? 'Edit Event' : 'New Event' }}</h3>
+        <div class="rounded-lg border bg-[hsl(var(--card))] p-4 shadow-[var(--card-shadow)] space-y-3">
+          <h3 class="text-sm font-semibold text-[hsl(var(--heading-secondary))]">{{ editingEvent() ? 'Edit Event' : 'New Event' }}</h3>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div><label class="text-xs font-medium">Title</label><input [(ngModel)]="formTitle" class="w-full rounded border px-3 py-1.5 text-sm" /></div>
             <div><label class="text-xs font-medium">Event Type</label><input [(ngModel)]="formEventType" placeholder="wedding, corporate, portrait..." class="w-full rounded border px-3 py-1.5 text-sm" /></div>
@@ -42,16 +42,16 @@ import { NotificationService } from '../../core/services/notification.service';
       @if (loading()) {
         <div class="space-y-4">
           @for (i of [1,2,3]; track i) {
-            <div class="h-20 animate-pulse rounded-lg border bg-[hsl(var(--card))]"></div>
+            <div class="h-20 animate-pulse rounded-lg border bg-[hsl(var(--card))] shadow-[var(--card-shadow)]"></div>
           }
         </div>
       } @else {
         <div class="space-y-3">
           @for (event of events(); track event.id) {
-            <div class="rounded-lg border bg-[hsl(var(--card))] p-4">
+            <div class="rounded-lg border bg-[hsl(var(--card))] p-4 shadow-[var(--card-shadow)]">
               <div class="flex items-start justify-between">
                 <div>
-                  <h3 class="font-medium">{{ event.title }}</h3>
+                  <h3 class="font-medium text-[hsl(var(--heading-secondary))]">{{ event.title }}</h3>
                   <div class="mt-1 flex flex-wrap gap-4 text-sm text-[hsl(var(--muted-foreground))]">
                     <span class="capitalize">{{ event.eventType }}</span>
                     <span>{{ event.scheduledAt | date:'MM/dd/yyyy h:mm a' }}</span>
@@ -157,7 +157,7 @@ export class EventsComponent implements OnInit {
   private orgId = '';
 
   isClient = () => this.auth.role() === 'client';
-  canManage = () => ['merchant', 'operations', 'administrator'].includes(this.auth.role());
+  canManage = () => ['merchant', 'administrator'].includes(this.auth.role());
   isTerminal = (status: string) => status === 'completed' || status === 'cancelled';
 
   ngOnInit(): void {

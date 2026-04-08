@@ -21,6 +21,15 @@
   --input: 214.3 31.8% 91.4%;
   --ring: 222.2 84% 4.9%;
   --radius: 0.5rem;
+
+  /* Visual hierarchy tokens for role-aware surfaces */
+  --surface-elevated: 0 0% 100%;
+  --surface-sunken: 220 14% 96%;
+  --heading-primary: 222.2 84% 4.9%;
+  --heading-secondary: 215.4 16.3% 30%;
+  --section-gap: 2rem;
+  --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --card-shadow-lg: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
 }
 
 * {
@@ -32,4 +41,38 @@ body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
   margin: 0;
+}
+
+/* ── Global visual hierarchy: headings ── */
+h1, h2 {
+  color: hsl(var(--heading-primary));
+  letter-spacing: -0.025em;
+}
+
+h3, h4 {
+  color: hsl(var(--heading-secondary));
+}
+
+/* ── Global visual hierarchy: cards & elevated surfaces ── */
+/* Any rounded bordered card surface automatically receives elevation */
+.rounded-lg[class*="border"][class*="bg-[hsl(var(--card))"] {
+  box-shadow: var(--card-shadow);
+}
+
+/* ── Global visual hierarchy: section spacing ── */
+main > * {
+  --tw-space-y-reverse: 0;
+}
+
+/* ── Focus & interaction accessibility ── */
+:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* ── Consistent transition defaults for interactive surfaces ── */
+a, button, [role="button"] {
+  transition-property: color, background-color, box-shadow, opacity;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }

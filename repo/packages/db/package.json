@@ -15,6 +15,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
+    "db:purge-audit": "tsx src/purge-audit.ts",
     "lint": "eslint src/"
   },
   "dependencies": {

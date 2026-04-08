@@ -238,6 +238,19 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     });
   });
 
+  // POST /admin/audit/purge — on-demand retention purge (admin-triggered)
+  fastify.post('/audit/purge', async (request, reply) => {
+    const purgedCount = await fastify.purgeAuditLogs();
+    request.auditContext = { resourceType: 'audit', action: 'audit.retention_purge', afterState: { purgedCount } };
+    await request.writeAudit();
+    return reply.status(200).send({ purgedCount });
+  });
+
+  // GET /admin/audit/retention-status — retention telemetry
+  fastify.get('/audit/retention-status', async (_request, reply) => {
+    return reply.status(200).send(fastify.auditRetentionTelemetry);
+  });
+
   // ==================== CONFIG ====================
 
   // GET /admin/config

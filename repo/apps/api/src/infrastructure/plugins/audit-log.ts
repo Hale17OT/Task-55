@@ -13,6 +13,8 @@ declare module 'fastify' {
     };
     /** True if audit was already written by the route handler via writeAudit() */
     _auditWritten?: boolean;
+    /** Re-entry guard for onSend audit hook */
+    _auditHookRan?: boolean;
     /** Write audit entry synchronously before sending response. Throws on failure. */
     writeAudit: () => Promise<void>;
   }
@@ -63,6 +65,7 @@ async function auditLogPlugin(fastify: FastifyInstance) {
   // Decorate every request with writeAudit() for explicit use in routes.
   fastify.addHook('onRequest', async (request) => {
     request._auditWritten = false;
+    request._auditHookRan = false;
     request.writeAudit = async () => {
       const entry = buildAuditEntry(request);
       const ok = await insertAuditWithRetry(fastify.db, entry, request.log);
@@ -73,31 +76,47 @@ async function auditLogPlugin(fastify: FastifyInstance) {
     };
   });
 
-  // Audit for read operations (GET/HEAD/OPTIONS) via onResponse (best-effort with retry).
+  // Fail-closed audit via onSend (pre-response).
+  // onSend fires BEFORE the response body is sent to the client. On audit failure
+  // for successful responses, the payload is replaced with a 500 error inline
+  // (never throw in onSend — that causes ERR_HTTP_HEADERS_SENT in Fastify 5).
   // Write operations MUST use writeAudit() in route handlers — no fallback.
-  fastify.addHook('onResponse', async (request, reply) => {
-    if (request._auditWritten) return;
-    if (!request.url.startsWith('/api/v1/') || request.url === '/api/v1/health') return;
+  fastify.addHook('onSend', async (request, reply, payload) => {
+    if (request._auditWritten) return payload;
+    if (request._auditHookRan) return payload;
+    request._auditHookRan = true;
+    if (!request.url.startsWith('/api/v1/') || request.url === '/api/v1/health') return payload;
 
-    // Successful write operations: MUST have called writeAudit() — invariant violation otherwise.
+    // Successful write operations: MUST have called writeAudit() — invariant violation.
+    // Replace the response with a 500 to block the un-audited write from reaching the client.
     if (WRITE_METHODS.has(request.method) && reply.statusCode < 400) {
       const msg = `AUDIT_VIOLATION: ${request.method} ${request.url} (${reply.statusCode}) completed without writeAudit(). Add auditContext + writeAudit() to this route.`;
       request.log.fatal({ method: request.method, url: request.url, statusCode: reply.statusCode }, msg);
-      throw new Error(msg);
+      reply.code(500);
+      reply.header('content-type', 'application/json');
+      return JSON.stringify({ error: 'AUDIT_VIOLATION', message: msg });
     }
 
-    // All remaining protected requests (reads, failed writes): guaranteed audit with retry.
-    // If insert fails after retries, emit fatal with full entry for reconciliation.
+    // All remaining protected requests (reads, failed writes): guaranteed durable audit.
+    // Fail-closed: if audit persistence fails after retries, replace the response with a
+    // 500 error regardless of the original status code. This ensures every protected action
+    // — including denied requests — generates an immutable audit record before delivery.
     const entry = buildAuditEntry(request);
     const ok = await insertAuditWithRetry(fastify.db, entry, request.log);
     if (!ok) {
+      const msg = 'AUDIT_PERSISTENCE_FAILURE: Could not persist audit record for protected action after retries.';
       request.log.fatal({
         auditEntry: entry,
         method: request.method,
         url: request.url,
         statusCode: reply.statusCode,
-      }, 'AUDIT_PERSISTENCE_FAILURE: Protected action completed without durable audit record. Entry logged for mandatory reconciliation.');
+      }, msg);
+      reply.code(500);
+      reply.header('content-type', 'application/json');
+      return JSON.stringify({ error: 'AUDIT_PERSISTENCE_FAILURE', message: msg });
     }
+
+    return payload;
   });
 }
 

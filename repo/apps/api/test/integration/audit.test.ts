@@ -32,15 +32,12 @@ describe('Audit Logging', () => {
 
     const { accessToken } = loginRes.json();
 
-    // Make an authenticated request
+    // Make an authenticated request — audit is written in onSend (before response)
     await app.inject({
       method: 'GET',
       url: '/api/v1/auth/session',
       headers: { authorization: `Bearer ${accessToken}` },
     });
-
-    // Wait a tick for fire-and-forget audit write
-    await new Promise((r) => setTimeout(r, 100));
 
     // Check audit logs
     const logs = await app.db.execute(

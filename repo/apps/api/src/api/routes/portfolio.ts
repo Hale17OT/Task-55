@@ -296,12 +296,17 @@ export default async function portfolioRoutes(fastify: FastifyInstance) {
     return reply.status(200).send({ ...item, tags });
   });
 
-  // GET /portfolio/tags
+  // GET /portfolio/tags (scoped to requester's org/ownership context)
   fastify.get('/tags', {
     preHandler: [fastify.authenticate, fastify.authorize('portfolio', 'read')],
   }, async (request, reply) => {
     const { search } = request.query as { search?: string };
-    const tags = await portfolioRepo.listTags(search);
+    const isMerchant = request.user.role === 'merchant';
+    const tags = await portfolioRepo.listTags({
+      search,
+      merchantId: isMerchant ? request.user.sub : undefined,
+      orgScope: request.authContext?.orgScope,
+    });
     return reply.status(200).send({ data: tags });
   });
 

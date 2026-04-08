@@ -10,8 +10,8 @@ import { NotificationService } from '../../core/services/notification.service';
   standalone: true,
   imports: [FormsModule, DatePipe],
   template: `
-    <div class="space-y-6">
-      <h2 class="text-2xl font-semibold tracking-tight">Administration</h2>
+    <div class="space-y-[var(--section-gap)]">
+      <h2 class="text-2xl font-semibold tracking-tight text-[hsl(var(--heading-primary))]">Administration</h2>
 
       <!-- Tabs -->
       <div class="flex gap-1 border-b">
@@ -27,7 +27,7 @@ import { NotificationService } from '../../core/services/notification.service';
 
       <!-- Roles Tab -->
       @if (activeTab() === 'Roles') {
-        <div class="rounded-lg border bg-[hsl(var(--card))] p-4">
+        <div class="rounded-lg border bg-[hsl(var(--card))] p-4 shadow-[var(--card-shadow)]">
           @if (roles().length > 0) {
             <div class="overflow-x-auto">
               <table class="w-full text-sm">
@@ -59,8 +59,8 @@ import { NotificationService } from '../../core/services/notification.service';
         </div>
 
         @if (editingRole()) {
-          <div class="mt-4 rounded-lg border bg-[hsl(var(--card))] p-4">
-            <h4 class="mb-2 text-sm font-semibold capitalize">Edit Permissions: {{ editingRole() }}</h4>
+          <div class="mt-4 rounded-lg border bg-[hsl(var(--card))] p-4 shadow-[var(--card-shadow)]">
+            <h4 class="mb-2 text-sm font-semibold capitalize text-[hsl(var(--heading-secondary))]">Edit Permissions: {{ editingRole() }}</h4>
             <div class="flex flex-wrap gap-2">
               @for (perm of allPermissions(); track perm) {
                 <label class="flex items-center gap-1.5 rounded border px-2 py-1 text-xs">
@@ -84,8 +84,8 @@ import { NotificationService } from '../../core/services/notification.service';
           <button (click)="showRuleForm.set(true)" class="rounded bg-[hsl(var(--primary))] px-3 py-1.5 text-sm text-[hsl(var(--primary-foreground))]">+ New Rule</button>
 
           @if (showRuleForm() || editingRuleId()) {
-            <div class="rounded-lg border bg-[hsl(var(--card))] p-4 space-y-2">
-              <h4 class="text-sm font-semibold">{{ editingRuleId() ? 'Edit Rule' : 'Create Rule' }}</h4>
+            <div class="rounded-lg border bg-[hsl(var(--card))] p-4 space-y-2 shadow-[var(--card-shadow)]">
+              <h4 class="text-sm font-semibold text-[hsl(var(--heading-secondary))]">{{ editingRuleId() ? 'Edit Rule' : 'Create Rule' }}</h4>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div><label class="text-xs">Rule Key</label><input [(ngModel)]="ruleFormKey" [disabled]="!!editingRuleId()" class="w-full rounded border px-2 py-1 text-sm" /></div>
                 <div><label class="text-xs">Limit</label><input [(ngModel)]="ruleFormLimit" type="number" class="w-full rounded border px-2 py-1 text-sm" /></div>
@@ -107,7 +107,7 @@ import { NotificationService } from '../../core/services/notification.service';
           }
 
           @for (rule of rules(); track rule.id) {
-            <div class="rounded-lg border bg-[hsl(var(--card))] p-4">
+            <div class="rounded-lg border bg-[hsl(var(--card))] p-4 shadow-[var(--card-shadow)]">
               <div class="flex items-center justify-between">
                 <div>
                   <span class="font-medium">{{ rule.ruleKey }}</span>
@@ -135,7 +135,7 @@ import { NotificationService } from '../../core/services/notification.service';
 
       <!-- Audit Tab -->
       @if (activeTab() === 'Audit') {
-        <div class="rounded-lg border bg-[hsl(var(--card))]">
+        <div class="rounded-lg border bg-[hsl(var(--card))] shadow-[var(--card-shadow)]">
           <div class="max-h-96 overflow-auto">
             <table class="w-full text-sm">
               <thead class="sticky top-0 bg-[hsl(var(--card))]"><tr class="border-b">
@@ -163,7 +163,7 @@ import { NotificationService } from '../../core/services/notification.service';
       @if (activeTab() === 'Config') {
         <div class="space-y-3">
           @for (entry of configEntries(); track entry.key) {
-            <div class="flex items-center justify-between rounded-lg border bg-[hsl(var(--card))] p-4">
+            <div class="flex items-center justify-between rounded-lg border bg-[hsl(var(--card))] p-4 shadow-[var(--card-shadow)]">
               <div>
                 <span class="font-medium font-mono text-sm">{{ entry.key }}</span>
                 <div class="mt-1 text-sm text-[hsl(var(--muted-foreground))]">{{ entry.displayValue }}</div>
@@ -186,7 +186,7 @@ import { NotificationService } from '../../core/services/notification.service';
       @if (activeTab() === 'Sessions') {
         <div class="space-y-2">
           @for (session of sessions(); track session.id) {
-            <div class="flex items-center justify-between rounded-lg border bg-[hsl(var(--card))] p-3">
+            <div class="flex items-center justify-between rounded-lg border bg-[hsl(var(--card))] p-3 shadow-[var(--card-shadow)]">
               <div class="text-sm">
                 <span class="font-mono text-xs">{{ session.tokenJti }}</span>
                 <span class="ml-2 text-[hsl(var(--muted-foreground))]">{{ session.lastActivityAt | date:'MM/dd HH:mm' }}</span>
@@ -201,7 +201,7 @@ import { NotificationService } from '../../core/services/notification.service';
       <!-- Whitelist Tab -->
       @if (activeTab() === 'Whitelist') {
         <div class="space-y-4">
-          <div class="flex gap-2 rounded-lg border bg-[hsl(var(--card))] p-4">
+          <div class="flex gap-2 rounded-lg border bg-[hsl(var(--card))] p-4 shadow-[var(--card-shadow)]">
             <input [(ngModel)]="newWhitelistRuleKey" placeholder="Rule key (e.g. daily_upload_limit)"
               class="flex-1 rounded border px-3 py-1.5 text-sm" />
             <input [(ngModel)]="newWhitelistUserId" placeholder="User ID (UUID)"
@@ -211,7 +211,7 @@ import { NotificationService } from '../../core/services/notification.service';
           </div>
           <div class="space-y-2">
             @for (entry of whitelistEntries(); track entry.id) {
-              <div class="flex items-center justify-between rounded-lg border bg-[hsl(var(--card))] p-3">
+              <div class="flex items-center justify-between rounded-lg border bg-[hsl(var(--card))] p-3 shadow-[var(--card-shadow)]">
                 <div class="text-sm">
                   <span class="font-medium">{{ entry.ruleKey }}</span>
                   <span class="ml-2 font-mono text-xs text-[hsl(var(--muted-foreground))]">{{ entry.userId }}</span>
@@ -231,14 +231,14 @@ import { NotificationService } from '../../core/services/notification.service';
       <!-- Org Members Tab -->
       @if (activeTab() === 'Org Members') {
         <div class="space-y-4">
-          <div class="flex gap-2 rounded-lg border bg-[hsl(var(--card))] p-4">
+          <div class="flex gap-2 rounded-lg border bg-[hsl(var(--card))] p-4 shadow-[var(--card-shadow)]">
             <input [(ngModel)]="newMemberOrgId" placeholder="Organization ID (UUID)" class="flex-1 rounded border px-3 py-1.5 text-sm font-mono" />
             <input [(ngModel)]="newMemberUserId" placeholder="User ID (UUID)" class="flex-1 rounded border px-3 py-1.5 text-sm font-mono" />
             <button (click)="addOrgMember()" class="rounded bg-[hsl(var(--primary))] px-3 py-1.5 text-sm text-[hsl(var(--primary-foreground))]">Add Member</button>
           </div>
           <div class="space-y-2">
             @for (member of orgMembers(); track member.id) {
-              <div class="flex items-center justify-between rounded-lg border bg-[hsl(var(--card))] p-3">
+              <div class="flex items-center justify-between rounded-lg border bg-[hsl(var(--card))] p-3 shadow-[var(--card-shadow)]">
                 <div class="text-sm">
                   <span class="font-mono text-xs">Org: {{ member.orgId?.substring(0, 8) }}...</span>
                   <span class="ml-2 font-mono text-xs">User: {{ member.userId?.substring(0, 8) }}...</span>

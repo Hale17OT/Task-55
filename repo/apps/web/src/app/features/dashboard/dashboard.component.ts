@@ -9,9 +9,9 @@ import { NotificationService } from '../../core/services/notification.service';
   standalone: true,
   imports: [FormsModule],
   template: `
-    <div class="space-y-6">
+    <div class="space-y-[var(--section-gap)]">
       <div class="flex items-center justify-between">
-        <h2 class="text-2xl font-semibold tracking-tight">Operations Dashboard</h2>
+        <h2 class="text-2xl font-semibold tracking-tight text-[hsl(var(--heading-primary))]">Operations Dashboard</h2>
         <div class="flex items-center gap-2">
           @if (hasFilePicker) {
             <button (click)="exportData('csv')" [disabled]="exporting()"
@@ -31,7 +31,7 @@ import { NotificationService } from '../../core/services/notification.service';
       </div>
 
       <!-- Filters -->
-      <div class="flex flex-wrap gap-4 rounded-lg border bg-[hsl(var(--card))] p-4">
+      <div class="flex flex-wrap gap-4 rounded-lg border bg-[hsl(var(--surface-sunken))] p-4">
         <div>
           <label class="mb-1 block text-xs font-medium text-[hsl(var(--muted-foreground))]">From (MM/DD/YYYY)</label>
           <input type="text" [(ngModel)]="dateFromDisplay" (change)="onDateFromChange()" placeholder="MM/DD/YYYY"
@@ -63,29 +63,29 @@ import { NotificationService } from '../../core/services/notification.service';
       } @else if (payload()) {
         <!-- KPI Cards -->
         <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <div class="rounded-lg border bg-[hsl(var(--card))] p-4">
-            <div class="text-sm text-[hsl(var(--muted-foreground))]">Total Events</div>
-            <div class="mt-1 text-2xl font-semibold">{{ totalEvents() }}</div>
+          <div class="rounded-lg border border-l-4 border-l-blue-500 bg-[hsl(var(--card))] p-4 shadow-[var(--card-shadow)]">
+            <div class="text-sm font-medium uppercase tracking-wide text-[hsl(var(--muted-foreground))]">Total Events</div>
+            <div class="mt-1 text-2xl font-semibold text-[hsl(var(--heading-primary))]">{{ totalEvents() }}</div>
           </div>
-          <div class="rounded-lg border bg-[hsl(var(--card))] p-4">
-            <div class="text-sm text-[hsl(var(--muted-foreground))]">Conversion Rate</div>
-            <div class="mt-1 text-2xl font-semibold">{{ conversionRate() }}%</div>
+          <div class="rounded-lg border border-l-4 border-l-emerald-500 bg-[hsl(var(--card))] p-4 shadow-[var(--card-shadow)]">
+            <div class="text-sm font-medium uppercase tracking-wide text-[hsl(var(--muted-foreground))]">Conversion Rate</div>
+            <div class="mt-1 text-2xl font-semibold text-[hsl(var(--heading-primary))]">{{ conversionRate() }}%</div>
           </div>
-          <div class="rounded-lg border bg-[hsl(var(--card))] p-4">
-            <div class="text-sm text-[hsl(var(--muted-foreground))]">Attendance Rate</div>
-            <div class="mt-1 text-2xl font-semibold">{{ attendanceRate() }}%</div>
+          <div class="rounded-lg border border-l-4 border-l-violet-500 bg-[hsl(var(--card))] p-4 shadow-[var(--card-shadow)]">
+            <div class="text-sm font-medium uppercase tracking-wide text-[hsl(var(--muted-foreground))]">Attendance Rate</div>
+            <div class="mt-1 text-2xl font-semibold text-[hsl(var(--heading-primary))]">{{ attendanceRate() }}%</div>
           </div>
-          <div class="rounded-lg border bg-[hsl(var(--card))] p-4">
-            <div class="text-sm text-[hsl(var(--muted-foreground))]">Cancellation Rate</div>
-            <div class="mt-1 text-2xl font-semibold">{{ cancellationRate() }}%</div>
+          <div class="rounded-lg border border-l-4 border-l-amber-500 bg-[hsl(var(--card))] p-4 shadow-[var(--card-shadow)]">
+            <div class="text-sm font-medium uppercase tracking-wide text-[hsl(var(--muted-foreground))]">Cancellation Rate</div>
+            <div class="mt-1 text-2xl font-semibold text-[hsl(var(--heading-primary))]">{{ cancellationRate() }}%</div>
           </div>
         </div>
 
         <!-- Charts Grid -->
         <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <!-- Popularity -->
-          <div class="rounded-lg border bg-[hsl(var(--card))] p-4">
-            <h3 class="mb-3 text-sm font-medium">Event Popularity</h3>
+          <div class="rounded-lg border bg-[hsl(var(--card))] p-4 shadow-[var(--card-shadow)]">
+            <h3 class="mb-3 text-sm font-medium text-[hsl(var(--heading-secondary))]">Event Popularity</h3>
             @for (item of payload()!.popularity.labels; track item; let i = $index) {
               <div class="mb-2 flex items-center justify-between text-sm">
                 <span class="capitalize">{{ item }}</span>
@@ -99,8 +99,8 @@ import { NotificationService } from '../../core/services/notification.service';
           </div>
 
           <!-- Channel Distribution -->
-          <div class="rounded-lg border bg-[hsl(var(--card))] p-4">
-            <h3 class="mb-3 text-sm font-medium">Channel Distribution</h3>
+          <div class="rounded-lg border bg-[hsl(var(--card))] p-4 shadow-[var(--card-shadow)]">
+            <h3 class="mb-3 text-sm font-medium text-[hsl(var(--heading-secondary))]">Channel Distribution</h3>
             @for (item of payload()!.channelDistribution.labels; track item; let i = $index) {
               <div class="mb-2 flex items-center justify-between text-sm">
                 <span class="capitalize">{{ item }}</span>
@@ -110,8 +110,8 @@ import { NotificationService } from '../../core/services/notification.service';
           </div>
 
           <!-- Tag Distribution -->
-          <div class="rounded-lg border bg-[hsl(var(--card))] p-4">
-            <h3 class="mb-3 text-sm font-medium">Tag Distribution</h3>
+          <div class="rounded-lg border bg-[hsl(var(--card))] p-4 shadow-[var(--card-shadow)]">
+            <h3 class="mb-3 text-sm font-medium text-[hsl(var(--heading-secondary))]">Tag Distribution</h3>
             @for (item of payload()!.tagDistribution.labels; track item; let i = $index) {
               <div class="mb-2 flex items-center justify-between text-sm">
                 <span>{{ item }}</span>
@@ -124,8 +124,8 @@ import { NotificationService } from '../../core/services/notification.service';
           </div>
 
           <!-- Conversion Funnel -->
-          <div class="rounded-lg border bg-[hsl(var(--card))] p-4">
-            <h3 class="mb-3 text-sm font-medium">Registration Funnel</h3>
+          <div class="rounded-lg border bg-[hsl(var(--card))] p-4 shadow-[var(--card-shadow)]">
+            <h3 class="mb-3 text-sm font-medium text-[hsl(var(--heading-secondary))]">Registration Funnel</h3>
             @for (stage of payload()!.conversionFunnel.stages; track stage; let i = $index) {
               <div class="mb-2 flex items-center justify-between text-sm">
                 <span class="capitalize">{{ stage }}</span>
@@ -135,8 +135,8 @@ import { NotificationService } from '../../core/services/notification.service';
           </div>
 
           <!-- Attendance -->
-          <div class="rounded-lg border bg-[hsl(var(--card))] p-4">
-            <h3 class="mb-3 text-sm font-medium">Attendance Breakdown</h3>
+          <div class="rounded-lg border bg-[hsl(var(--card))] p-4 shadow-[var(--card-shadow)]">
+            <h3 class="mb-3 text-sm font-medium text-[hsl(var(--heading-secondary))]">Attendance Breakdown</h3>
             @for (label of payload()!.attendanceRate.labels; track label; let i = $index) {
               <div class="mb-2 flex items-center justify-between text-sm">
                 <span>{{ label }}</span>
@@ -146,8 +146,8 @@ import { NotificationService } from '../../core/services/notification.service';
           </div>
 
           <!-- Cancellation -->
-          <div class="rounded-lg border bg-[hsl(var(--card))] p-4">
-            <h3 class="mb-3 text-sm font-medium">Cancellation Breakdown</h3>
+          <div class="rounded-lg border bg-[hsl(var(--card))] p-4 shadow-[var(--card-shadow)]">
+            <h3 class="mb-3 text-sm font-medium text-[hsl(var(--heading-secondary))]">Cancellation Breakdown</h3>
             @for (label of payload()!.cancellationRate.labels; track label; let i = $index) {
               <div class="mb-2 flex items-center justify-between text-sm">
                 <span>{{ label }}</span>

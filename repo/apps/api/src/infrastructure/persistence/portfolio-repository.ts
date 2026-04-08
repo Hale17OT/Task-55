@@ -170,13 +170,24 @@ export class DrizzlePortfolioRepository {
     return rows;
   }
 
-  async listTags(search?: string): Promise<TagRecord[]> {
-    if (search) {
-      return this.db.select().from(portfolioTags)
-        .where(sql`${portfolioTags.name} ILIKE ${'%' + search + '%'}`)
-        .limit(50);
+  async listTags(params: { search?: string; merchantId?: string; orgScope?: string[] }): Promise<TagRecord[]> {
+    const { search, merchantId, orgScope } = params;
+    const conditions: any[] = [isNull(portfolioItems.deletedAt)];
+
+    if (merchantId) conditions.push(eq(portfolioItems.merchantId, merchantId));
+    if (orgScope !== undefined) {
+      if (orgScope.length > 0) conditions.push(inArray(portfolioItems.originalOrgId, orgScope));
+      else conditions.push(sql`false`);
     }
-    return this.db.select().from(portfolioTags).limit(100);
+    if (search) conditions.push(sql`${portfolioTags.name} ILIKE ${'%' + search + '%'}`);
+
+    const rows = await this.db.selectDistinct({ id: portfolioTags.id, name: portfolioTags.name })
+      .from(portfolioTags)
+      .innerJoin(portfolioItemTags, eq(portfolioItemTags.tagId, portfolioTags.id))
+      .innerJoin(portfolioItems, eq(portfolioItemTags.itemId, portfolioItems.id))
+      .where(and(...conditions))
+      .limit(search ? 50 : 100);
+    return rows;
   }
 
   async listCategories(merchantId: string): Promise<Array<{ id: string; name: string; sortOrder: number }>> {

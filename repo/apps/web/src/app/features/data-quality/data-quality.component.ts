@@ -9,8 +9,8 @@ import { NotificationService } from '../../core/services/notification.service';
   standalone: true,
   imports: [DatePipe],
   template: `
-    <div class="space-y-6">
-      <h2 class="text-2xl font-semibold tracking-tight">Data Quality & Deduplication</h2>
+    <div class="space-y-[var(--section-gap)]">
+      <h2 class="text-2xl font-semibold tracking-tight text-[hsl(var(--heading-primary))]">Data Quality & Deduplication</h2>
 
       <!-- Tabs -->
       <div class="flex gap-1 border-b">
@@ -27,10 +27,10 @@ import { NotificationService } from '../../core/services/notification.service';
       @if (tab() === 'dedup') {
         <div class="space-y-3">
           @for (c of candidates(); track c.id) {
-            <div class="rounded-lg border bg-[hsl(var(--card))] p-4">
+            <div class="rounded-lg border bg-[hsl(var(--card))] p-4 shadow-[var(--card-shadow)]">
               <div class="flex items-center justify-between">
                 <div>
-                  <span class="text-sm font-medium">{{ c.recordType }} — {{ (c.similarityScore * 100).toFixed(1) }}% match</span>
+                  <span class="text-sm font-medium text-[hsl(var(--heading-secondary))]">{{ c.recordType }} — {{ (c.similarityScore * 100).toFixed(1) }}% match</span>
                   <div class="mt-1 text-xs text-[hsl(var(--muted-foreground))]">{{ c.createdAt | date:'MM/dd/yyyy HH:mm' }}</div>
                 </div>
                 <div class="flex gap-2">
@@ -47,7 +47,7 @@ import { NotificationService } from '../../core/services/notification.service';
             </div>
           }
           @if (candidates().length === 0) {
-            <div class="rounded-lg border bg-[hsl(var(--card))] p-8 text-center text-[hsl(var(--muted-foreground))]">No duplicate candidates</div>
+            <div class="rounded-lg border bg-[hsl(var(--card))] p-8 text-center text-[hsl(var(--muted-foreground))] shadow-[var(--card-shadow)]">No duplicate candidates</div>
           }
         </div>
       }
@@ -55,10 +55,10 @@ import { NotificationService } from '../../core/services/notification.service';
       @if (tab() === 'flags') {
         <div class="space-y-3">
           @for (f of flags(); track f.id) {
-            <div class="rounded-lg border bg-[hsl(var(--card))] p-4">
+            <div class="rounded-lg border bg-[hsl(var(--card))] p-4 shadow-[var(--card-shadow)]">
               <div class="flex items-center justify-between">
                 <div>
-                  <span class="text-sm font-medium">{{ f.field }}: {{ f.issue }}</span>
+                  <span class="text-sm font-medium text-[hsl(var(--heading-secondary))]">{{ f.field }}: {{ f.issue }}</span>
                   <div class="mt-1 text-xs text-[hsl(var(--muted-foreground))]">{{ f.recordType }} · {{ f.createdAt | date:'MM/dd/yyyy' }}</div>
                 </div>
                 @if (f.status === 'open') {
@@ -70,7 +70,7 @@ import { NotificationService } from '../../core/services/notification.service';
             </div>
           }
           @if (flags().length === 0) {
-            <div class="rounded-lg border bg-[hsl(var(--card))] p-8 text-center text-[hsl(var(--muted-foreground))]">No quality flags</div>
+            <div class="rounded-lg border bg-[hsl(var(--card))] p-8 text-center text-[hsl(var(--muted-foreground))] shadow-[var(--card-shadow)]">No quality flags</div>
           }
         </div>
       }

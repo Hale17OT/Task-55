@@ -125,10 +125,12 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
   // POST /auth/refresh
   fastify.post('/refresh', async (request, reply) => {
-    // Accept refresh token from httpOnly cookie or body (backward compat for API tests)
-    const bodyToken = (request.body as any)?.refreshToken;
     const cookieToken = (request as any).cookies?.refreshToken;
-    const refreshToken = bodyToken || cookieToken;
+    // In production, only accept refresh tokens from httpOnly cookie to minimize exposure.
+    // Body-based tokens are allowed in dev/test for API testing convenience.
+    const isProduction = fastify.appConfig?.NODE_ENV === 'production';
+    const bodyToken = isProduction ? undefined : (request.body as any)?.refreshToken;
+    const refreshToken = cookieToken || bodyToken;
 
     if (!refreshToken) {
       return reply.status(400).send({

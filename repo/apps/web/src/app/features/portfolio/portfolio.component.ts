@@ -10,9 +10,9 @@ import { AuthService } from '../../core/services/auth.service';
   standalone: true,
   imports: [FormsModule],
   template: `
-    <div class="space-y-6">
+    <div class="space-y-[var(--section-gap)]">
       <div class="flex items-center justify-between">
-        <h2 class="text-2xl font-semibold tracking-tight">Portfolio</h2>
+        <h2 class="text-2xl font-semibold tracking-tight text-[hsl(var(--heading-primary))]">Portfolio</h2>
         @if (canEdit()) {
           <div class="flex items-center gap-2">
             <select [(ngModel)]="uploadCategoryId" class="rounded border px-2 py-1.5 text-sm">
@@ -46,9 +46,9 @@ import { AuthService } from '../../core/services/auth.service';
       } @else {
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           @for (item of items(); track item.id) {
-            <div class="rounded-lg border bg-[hsl(var(--card))] p-4">
+            <div class="rounded-lg border bg-[hsl(var(--card))] p-4 shadow-[var(--card-shadow)] transition-shadow hover:shadow-[var(--card-shadow-lg)]">
               <div class="mb-2 flex items-center justify-between">
-                <span class="text-sm font-medium">{{ item.title }}</span>
+                <span class="text-sm font-medium text-[hsl(var(--heading-primary))]">{{ item.title }}</span>
                 <div class="flex items-center gap-1">
                   @if (canEdit()) { <button (click)="deleteItem(item.id)" class="rounded px-1.5 py-0.5 text-xs text-red-600 hover:bg-red-50">Delete</button> }
                   <span class="rounded-full px-2 py-0.5 text-xs"
@@ -115,8 +115,8 @@ import { AuthService } from '../../core/services/auth.service';
 
       <!-- Category Management (merchant/admin only) -->
       @if (canEdit()) {
-      <div class="mt-8 rounded-lg border bg-[hsl(var(--card))] p-4">
-        <h3 class="mb-3 text-sm font-medium">Categories</h3>
+      <div class="mt-8 rounded-lg border bg-[hsl(var(--card))] p-4 shadow-[var(--card-shadow)]">
+        <h3 class="mb-3 text-sm font-medium text-[hsl(var(--heading-secondary))]">Categories</h3>
         <div class="space-y-2">
           @for (cat of categories(); track cat.id) {
             <div class="flex items-center justify-between rounded border px-3 py-2 text-sm">
@@ -137,7 +137,7 @@ import { AuthService } from '../../core/services/auth.service';
       @if (editingTagsItemId()) {
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" (click)="editingTagsItemId.set(null)">
           <div class="w-full max-w-sm rounded-lg border bg-[hsl(var(--background))] p-6" (click)="$event.stopPropagation()">
-            <h3 class="mb-3 text-sm font-semibold">Edit Tags</h3>
+            <h3 class="mb-3 text-sm font-semibold text-[hsl(var(--heading-secondary))]">Edit Tags</h3>
             <input [(ngModel)]="tagInput" placeholder="Comma-separated tags (e.g. Lifestyle, Product, B&W)"
               class="w-full rounded border px-3 py-2 text-sm" />
             <div class="mt-3 flex justify-end gap-2">

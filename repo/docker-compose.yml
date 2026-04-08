@@ -55,6 +55,22 @@ services:
       api:
         condition: service_healthy
 
+  audit-purge-cron:
+    build:
+      context: .
+      dockerfile: Dockerfile.cron
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "0 3 * * * cd /app && DATABASE_URL=$$DATABASE_URL AUDIT_RETENTION_DAYS=365 npx tsx packages/db/src/purge-audit.ts >> /var/log/audit-purge.log 2>&1" > /etc/crontabs/root
+        crond -f -l 2
+    environment:
+      DATABASE_URL: postgres://studioops:${DB_PASSWORD:-dev_password_change_me}@db:5432/studioops
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
   test-runner:
     build:
       context: .

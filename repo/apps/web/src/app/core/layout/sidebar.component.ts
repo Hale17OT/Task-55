@@ -24,8 +24,8 @@ const NAV_ITEMS: NavItem[] = [
   imports: [RouterLink, RouterLinkActive],
   template: `
     <aside class="flex w-[260px] flex-col border-r border-[hsl(var(--border))] bg-[hsl(var(--background))]">
-      <div class="flex h-16 items-center px-6">
-        <h1 class="text-lg font-semibold tracking-tight">StudioOps</h1>
+      <div class="flex h-16 items-center border-b border-[hsl(var(--border))] px-6">
+        <h1 class="text-lg font-bold tracking-tight text-[hsl(var(--heading-primary))]">StudioOps</h1>
       </div>
       <nav class="flex-1 space-y-1 px-3 py-4">
         @for (item of visibleItems(); track item.path) {
