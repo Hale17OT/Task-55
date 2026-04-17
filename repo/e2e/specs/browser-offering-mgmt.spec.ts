@@ -18,7 +18,7 @@ test.describe('Browser: Merchant Offering Management', () => {
     const newBtn = page.locator('button:has-text("New Offering")');
     await expect(newBtn).toBeVisible({ timeout: 10000 });
     await newBtn.click();
-    await expect(page.locator('text=New Offering')).toBeVisible({ timeout: 3000 });
+    await expect(page.locator('h3:has-text("New Offering")')).toBeVisible({ timeout: 3000 });
     await expect(page.locator('input[name="title"]')).toBeVisible();
     await expect(page.locator('input[name="priceUsd"]')).toBeVisible();
     await expect(page.locator('input[name="durationMinutes"]')).toBeVisible();
