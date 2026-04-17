@@ -1,6 +1,8 @@
 # StudioOps — Offline Photo & Video Service Platform
 
-Local-network platform for photography and videography teams to manage service offerings, client access, portfolios, and performance insights. Zero internet dependency.
+**Project Type:** `fullstack` (Fastify API + Angular web app, fully containerized)
+
+Local-network platform for photography and videography teams to manage service offerings, client access, portfolios, and performance insights. Zero internet dependency. Runs entirely inside Docker — no local Node.js, FFmpeg, or other runtime installs required.
 
 ## Roles
 
@@ -12,84 +14,85 @@ Local-network platform for photography and videography teams to manage service o
 
 ## Prerequisites
 
-- Docker 24+ and Docker Compose v2
-- Node.js 20+ (for local development)
-- FFmpeg (for local development — video processing requires `ffmpeg` and `ffprobe` on PATH; included in Docker image)
+- Docker 24+ and Docker Compose
 
 ## Quick Start
 
 ```bash
 cp .env.example .env
 # REQUIRED: Edit .env and set real values for DB_PASSWORD, JWT_SECRET, and ENCRYPTION_KEY
-docker compose up --build
+docker-compose up
 ```
 
-- **Frontend**: http://localhost:4200 (also proxies `/api` to the API)
-- **API**: http://localhost:3100/api/v1/health (Docker maps container port 3000 → host port 3100)
+The first run builds images automatically; the database, API, and web app all start as containers. No `npm install`, no local Node, no local FFmpeg.
 
-### First-Run Setup
+### Access
 
-On first deployment, seed the database with demo data by adding `SEED_DATA=true` to the api service environment (or run the seed script manually). Seeding is **opt-in** and disabled by default for production safety.
+- **Frontend (web app)**: http://localhost:4200
+- **API base URL**: http://localhost:3100/api/v1
+- **API health endpoint**: http://localhost:3100/api/v1/health
+
+### Verify the App Is Working
+
+After `docker-compose up` reports all services healthy, run these verification steps in order. Each step has an explicit expected result:
+
+1. **API health check** — confirms the API container is reachable:
+   ```bash
+   curl http://localhost:3100/api/v1/health
+   ```
+   Expected: HTTP 200 with JSON `{"status":"ok"}` (or similar healthy payload).
+
+2. **Frontend reachable** — confirms the web container is serving:
+   ```bash
+   curl -I http://localhost:4200
+   ```
+   Expected: HTTP 200 and an `index.html` response.
+
+3. **Login as the seeded admin** — confirms DB seeding and auth work end-to-end:
+   ```bash
+   curl -X POST http://localhost:3100/api/v1/auth/login \
+     -H "Content-Type: application/json" \
+     -d '{"username":"admin","password":"AdminPass123!@"}'
+   ```
+   Expected: HTTP 200 with a JSON body containing `accessToken` and `refreshToken`.
+
+4. **List offerings as a guest** — confirms read paths work:
+   ```bash
+   curl http://localhost:3100/api/v1/offerings
+   ```
+   Expected: HTTP 200 with `{"data":[...]}` (array of public offerings after seeding).
+
+5. **UI smoke test** — open http://localhost:4200 in a Chromium browser, click **Login**, and sign in as `admin` / `AdminPass123!@`. Expected: redirect to the dashboard with navigation visible (Offerings, Portfolio, Events, Analytics).
+
+If all five steps pass, the stack is up and verified.
+
+### First-Run Seeding
+
+Demo data is seeded automatically when `SEED_DATA=true` is set in the api service environment (default in the bundled `docker-compose.yml`). Seeding is **opt-in** and disabled by default for production safety.
 
 ### Seed Accounts (Development Only)
 
 | Role | Username | Password |
 |------|----------|----------|
+| Guest | _(no credentials)_ | **No authentication required** — anonymous requests can hit public endpoints (e.g. `GET /api/v1/offerings`) |
 | Administrator | admin | AdminPass123!@ |
 | Operations | ops_user | OpsUserPass123!@ |
 | Merchant | merchant1 | MerchantPass123!@ |
 | Client | client1 | ClientPass123!@ |
 
+The **Guest** role represents unauthenticated visitors. No credentials are issued or required; simply omit the `Authorization` header to act as a guest.
+
 > **Security:** These are well-known default credentials for local development only. After first login, change all seed account passwords immediately. Do not use seed credentials in production without resetting them.
-
-## Development (Local)
-
-```bash
-npm install
-npm run build -w packages/shared -w packages/db
-
-# Start DB
-docker compose up db -d
-
-# Push schema + apply triggers + seed
-cd packages/db
-DATABASE_URL="postgres://studioops:dev_password_change_me@127.0.0.1:54320/studioops" npx drizzle-kit push --force
-DATABASE_URL="postgres://studioops:dev_password_change_me@127.0.0.1:54320/studioops" npx tsx src/apply-triggers.ts
-DATABASE_URL="postgres://studioops:dev_password_change_me@127.0.0.1:54320/studioops" npx tsx src/seed-full.ts
-
-# Start API
-cd apps/api
-DATABASE_URL="postgres://studioops:dev_password_change_me@127.0.0.1:54320/studioops" npx tsx src/index.ts
-
-# Start Angular (proxies /api to localhost:3000 via proxy.conf.json)
-cd apps/web && npx ng serve
-```
 
 ## Testing
 
-### Run all tests in Docker (recommended)
-
-Runs the entire test suite — unit, integration, and E2E — inside Docker with a real PostgreSQL database and live API:
+All tests run inside Docker against a real PostgreSQL database and live API — no local Node or test-runner setup required.
 
 ```bash
-npm run test:docker
+docker-compose --env-file .env.test --profile test up --build --abort-on-container-exit --exit-code-from test-runner
 ```
 
-This starts DB + API + Web + test-runner, seeds the database, and runs all tests in strict CI mode (no skipped stages). Exit code 0 means all tests passed.
-
-### Local testing (without Docker)
-
-```bash
-npm test              # Runs unit → integration (if DB up) → build → E2E (if API up)
-```
-
-Integration and E2E stages skip gracefully when their infrastructure is unavailable. To run everything locally without Docker, start the DB and API first, then:
-
-```bash
-CI=true DATABASE_URL="postgres://studioops:...@localhost:54320/studioops" API_URL="http://localhost:3100" npm test
-```
-
-This will exit non-zero if integration or E2E stages cannot run.
+This starts DB + API + Web + test-runner containers, seeds the database, and runs the full unit / integration / E2E suite in strict CI mode (no skipped stages). Exit code 0 means all tests passed.
 
 ## Architecture
 
@@ -168,8 +171,8 @@ Infrastructure Layer (adapters implementing ports)
 | GET | `/api/v1/portfolio/tags` | Yes | List tags |
 | GET | `/api/v1/portfolio/categories` | Yes | List categories |
 | POST | `/api/v1/portfolio/categories` | Merchant | Create category |
-| PUT | `/api/v1/portfolio/categories/:id` | Merchant | Update category |
-| DELETE | `/api/v1/portfolio/categories/:id` | Merchant | Delete category |
+| PUT | `/api/v1/portfolio/categories/:categoryId` | Merchant | Update category |
+| DELETE | `/api/v1/portfolio/categories/:categoryId` | Merchant | Delete category |
 
 ### Media
 | Method | Path | Auth | Description |
